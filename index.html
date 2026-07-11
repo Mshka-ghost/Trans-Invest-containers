@@ -251,7 +251,7 @@
       </table>
     </div>
 
-    <h3 class="section-title">Остальные объёмы</h3>
+    <h3 class="section-title">Контейнеры 20 м³+</h3>
     <div class="table-scroll">
       <table>
         <thead>
@@ -267,6 +267,7 @@
 
   <!-- HISTORY TAB -->
   <div class="tab-panel" id="panel-history">
+    <h3 class="section-title">Контейнеры 8 м³</h3>
     <div class="table-scroll">
       <table>
         <thead>
@@ -275,7 +276,20 @@
             <th>Установлен</th><th>Снят</th><th>Операция</th>
           </tr>
         </thead>
-        <tbody id="historyTableBody"></tbody>
+        <tbody id="historyTableBody8"></tbody>
+      </table>
+    </div>
+
+    <h3 class="section-title">Контейнеры 20 м³+</h3>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>№</th><th>Объём</th><th>Номер</th><th>Клиент</th><th>Адрес</th>
+            <th>Установлен</th><th>Снят</th><th>Операция</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBodyOther"></tbody>
       </table>
     </div>
   </div>
@@ -585,7 +599,16 @@ function renderActiveTableInto(tbodyId, rows){
 function renderHistoryTable(){
   let rows = containers.filter(isHistory);
   rows = rows.slice().sort((a,b)=> (b.removalDate||'').localeCompare(a.removalDate||''));
-  const tbody = document.getElementById('historyTableBody');
+
+  const rows8 = rows.filter(c=>c.volume===8);
+  const rowsOther = rows.filter(c=>c.volume!==8);
+
+  renderHistoryTableInto('historyTableBody8', rows8);
+  renderHistoryTableInto('historyTableBodyOther', rowsOther);
+}
+
+function renderHistoryTableInto(tbodyId, rows){
+  const tbody = document.getElementById(tbodyId);
   if(rows.length===0){
     tbody.innerHTML = `<tr class="empty-row"><td colspan="8">История пуста</td></tr>`;
     return;
