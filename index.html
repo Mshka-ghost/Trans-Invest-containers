@@ -359,7 +359,7 @@
     <h3>Заменить контейнер</h3>
     <p style="font-size:13px;color:var(--muted);margin-top:-8px;" id="replaceInfo"></p>
     <div class="field">
-      <label>Новый контейнер (из наличия на складе)</label>
+      <label>Новый объём (можно выбрать другой, из наличия на складе)</label>
       <select id="f-replace-volume"></select>
     </div>
     <div class="modal-actions">
@@ -803,16 +803,37 @@ function openReplaceModal(id){
   if(!c) return;
   replaceTargetId = id;
   document.getElementById('replaceInfo').textContent =
-    `${c.client} · ${c.address} · текущий объём ${c.volume} м³. Наличие на складе для этого объёма: ${stock[c.volume]||0} шт.`;
+    `${c.client} · ${c.address} · текущий объём ${c.volume} м³.`;
   const sel = document.getElementById('f-replace-volume');
-  sel.innerHTML = `<option value="${c.volume}">${c.volume} м³ (в наличии: ${stock[c.volume]||0})</option>`;
+  sel.innerHTML = VOLUMES.map(v=>{
+    const isCurrent = v===c.volume;
+    const avail = stock[v]||0;
+    const disabled = (!isCurrent && avail<=0) ? 'disabled' : '';
+    const label = isCurrent
+      ? `${v} м³ — текущий (на складе: ${avail})`
+      : `${v} м³ (на складе: ${avail})`;
+    return `<option value="${v}" ${disabled}>${label}</option>`;
+  }).join('');
+  sel.value = c.volume;
   openModal('replaceModalBackdrop');
 }
 async function confirmReplace(){
   const c = containers.find(x=>x.id===replaceTargetId);
   if(!c) return;
-  // Per spec: existing record is updated in place, install date resets, type becomes "Замена".
-  // Stock quantity is NOT affected by a replacement operation.
+  const newVolume = parseInt(document.getElementById('f-replace-volume').value,10);
+
+  if(newVolume !== c.volume){
+    if((stock[newVolume]||0) <= 0){
+      alert('На складе нет свободных контейнеров этого объёма.');
+      return;
+    }
+    // Старый контейнер возвращается на склад, новый — забирается со склада.
+    stock[c.volume] = (stock[c.volume]||0) + 1;
+    stock[newVolume] = (stock[newVolume]||0) - 1;
+    c.volume = newVolume;
+    await syncStock();
+  }
+
   c.installDate = todayISO();
   c.type = 'Замена';
   await upsertContainerRow(c);
