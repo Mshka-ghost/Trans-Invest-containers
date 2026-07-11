@@ -339,36 +339,29 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
 /* ============ CONFIG & STATE ============ */
 const VOLUMES = [8,16,20,25,27,36,38];
 
-const SUPABASE_URL = 'https://njwtbqoiqqwyhpbkztui.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_JNHN-VmbDF5iFgNz8E-IaA_vSZoatK4';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const firebaseConfig = {
+  apiKey: "AIzaSyAW_2QPm7pt-0LJ6VvfKjInkrd7PZt-bBA",
+  authDomain: "trans-invest-containers.firebaseapp.com",
+  projectId: "trans-invest-containers",
+  storageBucket: "trans-invest-containers.firebasestorage.app",
+  messagingSenderId: "400449663114",
+  appId: "1:400449663114:web:80b37f0f535142ab76bd73"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
 let containers = [];
 let stock = {};
 VOLUMES.forEach(v=>stock[v]=0);
 let numCounter = 0;
 let replaceTargetId = null;
-
-/* ---- Row <-> JS object mapping ---- */
-function rowToContainer(r){
-  return {
-    id: r.id, number: r.number, volume: r.volume, client: r.client, address: r.address,
-    status: r.status, type: r.type, installDate: r.install_date, removalDate: r.removal_date,
-    prevType: r.prev_type
-  };
-}
-function containerToRow(c){
-  return {
-    id: c.id, number: c.number, volume: c.volume, client: c.client, address: c.address,
-    status: c.status, type: c.type, install_date: c.installDate, removal_date: c.removalDate,
-    prev_type: c.prevType
-  };
-}
+let suppressNextSnapshot = false; // avoids double-reload right after our own write
 
 function setFooterStatus(text, isError){
   const el = document.getElementById('statusFooter');
@@ -377,49 +370,59 @@ function setFooterStatus(text, isError){
   el.style.color = isError ? 'var(--red)' : '';
 }
 
-/* ---- Load everything from Supabase ---- */
+/* ---- Load everything from Firestore ---- */
 async function loadAll(){
-  const [contRes, stockRes, counterRes] = await Promise.all([
-    sb.from('containers').select('*'),
-    sb.from('stock').select('*'),
-    sb.from('counters').select('*').eq('key','container_number')
-  ]);
-  if(contRes.error || stockRes.error || counterRes.error){
-    setFooterStatus('Ошибка подключения к базе данных. Проверьте интернет и настройки Supabase.', true);
-    console.error(contRes.error || stockRes.error || counterRes.error);
-    return;
+  try{
+    const contSnap = await db.collection('containers').get();
+    containers = contSnap.docs.map(d=>({ id: d.id, ...d.data() }));
+
+    const stockSnap = await db.collection('stock').get();
+    stock = {}; VOLUMES.forEach(v=>stock[v]=0);
+    stockSnap.docs.forEach(d=>{ stock[parseInt(d.id,10)] = d.data().qty || 0; });
+
+    const counterDoc = await db.collection('meta').doc('counter').get();
+    numCounter = counterDoc.exists ? (counterDoc.data().value || 0) : 0;
+
+    setFooterStatus('Общая база данных · изменения видны всем сотрудникам в реальном времени');
+  } catch(e){
+    setFooterStatus('Ошибка подключения к базе данных. Проверьте интернет и настройки Firebase.', true);
+    console.error(e);
   }
-  containers = (contRes.data||[]).map(rowToContainer);
-  stock = {}; VOLUMES.forEach(v=>stock[v]=0);
-  (stockRes.data||[]).forEach(r=>{ stock[r.volume] = r.qty; });
-  numCounter = (counterRes.data && counterRes.data[0]) ? counterRes.data[0].value : 0;
-  setFooterStatus('Общая база данных · изменения видны всем сотрудникам в реальном времени');
 }
 
 /* ---- Write helpers ---- */
 async function upsertContainerRow(c){
-  const { error } = await sb.from('containers').upsert(containerToRow(c));
-  if(error){ alert('Ошибка сохранения контейнера: '+error.message); console.error(error); }
+  try{
+    const { id, ...fields } = c;
+    await db.collection('containers').doc(id).set(fields);
+  } catch(e){ alert('Ошибка сохранения контейнера: '+e.message); console.error(e); }
 }
 async function deleteContainerRow(id){
-  const { error } = await sb.from('containers').delete().eq('id', id);
-  if(error){ alert('Ошибка удаления: '+error.message); console.error(error); }
+  try{
+    await db.collection('containers').doc(id).delete();
+  } catch(e){ alert('Ошибка удаления: '+e.message); console.error(e); }
 }
 async function syncStock(){
-  const rows = VOLUMES.map(v=>({volume:v, qty: stock[v]||0}));
-  const { error } = await sb.from('stock').upsert(rows);
-  if(error){ alert('Ошибка сохранения склада: '+error.message); console.error(error); }
+  try{
+    await Promise.all(VOLUMES.map(v=>db.collection('stock').doc(String(v)).set({ qty: stock[v]||0 })));
+  } catch(e){ alert('Ошибка сохранения склада: '+e.message); console.error(e); }
 }
 async function syncCounter(){
-  const { error } = await sb.from('counters').upsert({key:'container_number', value:numCounter});
-  if(error){ console.error(error); }
+  try{
+    await db.collection('meta').doc('counter').set({ value: numCounter });
+  } catch(e){ console.error(e); }
 }
 
 /* ---- Realtime: refresh when any other user changes data ---- */
-sb.channel('containers-live')
-  .on('postgres_changes', {event:'*', schema:'public', table:'containers'}, ()=>{ loadAll().then(renderAll); })
-  .on('postgres_changes', {event:'*', schema:'public', table:'stock'}, ()=>{ loadAll().then(renderAll); })
-  .subscribe();
+suppressNextSnapshot = true; // skip the initial snapshot fired immediately on subscribe
+db.collection('containers').onSnapshot(()=>{
+  if(suppressNextSnapshot){ suppressNextSnapshot=false; return; }
+  loadAll().then(renderAll);
+});
+db.collection('stock').onSnapshot(()=>{
+  loadAll().then(renderAll);
+});
+
 
 /* ============ HELPERS ============ */
 function todayISO(){
