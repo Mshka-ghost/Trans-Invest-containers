@@ -131,6 +131,8 @@
 
   /* ---------- Table ---------- */
   .table-scroll{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  .section-title{font-size:14px;font-weight:600;color:var(--steel-dark);margin:22px 0 10px;}
+  .section-title:first-of-type{margin-top:6px;}
   table{width:100%;border-collapse:collapse;font-size:13px;}
   thead th{
     text-align:left;background:var(--steel-tint);color:var(--steel-dark);
@@ -236,6 +238,7 @@
       <button class="btn btn-primary" onclick="openAddModal()">+ Добавить контейнер</button>
     </div>
 
+    <h3 class="section-title">Контейнеры 8 м³</h3>
     <div class="table-scroll">
       <table>
         <thead>
@@ -244,7 +247,20 @@
             <th>Операция</th><th>Установлен</th><th>Дней без движ.</th><th>Напоминание</th><th>Действия</th>
           </tr>
         </thead>
-        <tbody id="activeTableBody"></tbody>
+        <tbody id="activeTableBody8"></tbody>
+      </table>
+    </div>
+
+    <h3 class="section-title">Остальные объёмы</h3>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>№</th><th>Объём</th><th>Клиент</th><th>Адрес</th><th>Статус</th>
+            <th>Операция</th><th>Установлен</th><th>Дней без движ.</th><th>Напоминание</th><th>Действия</th>
+          </tr>
+        </thead>
+        <tbody id="activeTableBodyOther"></tbody>
       </table>
     </div>
   </div>
@@ -361,7 +377,8 @@ let stock = {};
 VOLUMES.forEach(v=>stock[v]=0);
 let numCounter = 0;
 let replaceTargetId = null;
-let suppressNextSnapshot = false; // avoids double-reload right after our own write
+
+let _containersReady = false, _stockReady = false, _counterReady = false;
 
 function setFooterStatus(text, isError){
   const el = document.getElementById('statusFooter');
@@ -370,27 +387,14 @@ function setFooterStatus(text, isError){
   el.style.color = isError ? 'var(--red)' : '';
 }
 
-/* ---- Load everything from Firestore ---- */
-async function loadAll(){
-  try{
-    const contSnap = await db.collection('containers').get();
-    containers = contSnap.docs.map(d=>({ id: d.id, ...d.data() }));
-
-    const stockSnap = await db.collection('stock').get();
-    stock = {}; VOLUMES.forEach(v=>stock[v]=0);
-    stockSnap.docs.forEach(d=>{ stock[parseInt(d.id,10)] = d.data().qty || 0; });
-
-    const counterDoc = await db.collection('meta').doc('counter').get();
-    numCounter = counterDoc.exists ? (counterDoc.data().value || 0) : 0;
-
+function _maybeRenderOnceReady(){
+  if(_containersReady && _stockReady && _counterReady){
     setFooterStatus('Общая база данных · изменения видны всем сотрудникам в реальном времени');
-  } catch(e){
-    setFooterStatus('Ошибка подключения к базе данных. Проверьте интернет и настройки Firebase.', true);
-    console.error(e);
+    renderAll();
   }
 }
 
-/* ---- Write helpers ---- */
+/* ---- Write helpers (writes only — reads come from live listeners below) ---- */
 async function upsertContainerRow(c){
   try{
     const { id, ...fields } = c;
@@ -413,15 +417,29 @@ async function syncCounter(){
   } catch(e){ console.error(e); }
 }
 
-/* ---- Realtime: refresh when any other user changes data ---- */
-suppressNextSnapshot = true; // skip the initial snapshot fired immediately on subscribe
-db.collection('containers').onSnapshot(()=>{
-  if(suppressNextSnapshot){ suppressNextSnapshot=false; return; }
-  loadAll().then(renderAll);
-});
-db.collection('stock').onSnapshot(()=>{
-  loadAll().then(renderAll);
-});
+/* ---- Live listeners: local state is ALWAYS driven directly by Firestore.
+   This avoids any race between our own writes and manual reloads — the
+   moment any document changes (by us or by a colleague), the relevant
+   snapshot fires and the UI re-renders from the fresh data. ---- */
+db.collection('containers').onSnapshot(snap=>{
+  containers = snap.docs.map(d=>({ id: d.id, ...d.data() }));
+  _containersReady = true;
+  _maybeRenderOnceReady();
+}, err=>{ setFooterStatus('Ошибка подключения к базе данных. Проверьте интернет и настройки Firebase.', true); console.error(err); });
+
+db.collection('stock').onSnapshot(snap=>{
+  const s = {}; VOLUMES.forEach(v=>s[v]=0);
+  snap.docs.forEach(d=>{ s[parseInt(d.id,10)] = d.data().qty || 0; });
+  stock = s;
+  _stockReady = true;
+  _maybeRenderOnceReady();
+}, err=>{ setFooterStatus('Ошибка подключения к базе данных. Проверьте интернет и настройки Firebase.', true); console.error(err); });
+
+db.collection('meta').doc('counter').onSnapshot(doc=>{
+  numCounter = doc.exists ? (doc.data().value || 0) : 0;
+  _counterReady = true;
+  _maybeRenderOnceReady();
+}, err=>console.error(err));
 
 
 /* ============ HELPERS ============ */
@@ -523,7 +541,15 @@ function renderActiveTable(){
 
   rows = rows.slice().sort((a,b)=> (b.installDate||'').localeCompare(a.installDate||''));
 
-  const tbody = document.getElementById('activeTableBody');
+  const rows8 = rows.filter(c=>c.volume===8);
+  const rowsOther = rows.filter(c=>c.volume!==8);
+
+  renderActiveTableInto('activeTableBody8', rows8);
+  renderActiveTableInto('activeTableBodyOther', rowsOther);
+}
+
+function renderActiveTableInto(tbodyId, rows){
+  const tbody = document.getElementById(tbodyId);
   if(rows.length===0){
     tbody.innerHTML = `<tr class="empty-row"><td colspan="10">Нет контейнеров, соответствующих условиям</td></tr>`;
     return;
@@ -780,7 +806,7 @@ document.querySelectorAll('.modal-backdrop').forEach(bd=>{
 
 /* ============ INIT ============ */
 document.getElementById('todayStamp').textContent = 'Сегодня: ' + formatDate(todayISO());
-loadAll().then(renderAll);
+/* rendering now happens automatically once live listeners deliver initial data — see _maybeRenderOnceReady() above */
 </script>
 </body>
 </html>
