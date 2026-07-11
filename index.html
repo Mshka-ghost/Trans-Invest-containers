@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Учёт контейнеров — Транс Инвест</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EEF1F4;
+    --surface:#FFFFFF;
+    --ink:#1C2530;
+    --muted:#6B7785;
+    --line:#DBE1E8;
+    --steel:#2B5876;
+    --steel-dark:#1B3A50;
+    --steel-tint:#E7EEF2;
+    --amber:#E2711D;
+    --amber-tint:#FCE9DA;
+    --green:#2F9E44;
+    --green-tint:#E5F6E9;
+    --grey:#6C7580;
+    --grey-tint:#EBEDEF;
+    --yellow:#B4790A;
+    --yellow-tint:#FFF2D6;
+    --blue:#3457C9;
+    --blue-tint:#E8ECFB;
+    --red:#D9291C;
+    --red-tint:#FBE4E2;
+    --orange:#E67A00;
+    --orange-tint:#FEF0DD;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(28,37,48,.06), 0 4px 14px rgba(28,37,48,.05);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:60px;
+  }
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif; margin:0;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  ::selection{background:var(--amber-tint);}
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    background:linear-gradient(135deg,var(--steel-dark),var(--steel));
+    color:#fff;
+    padding:22px 28px 26px;
+  }
+  .topbar-inner{max-width:1280px;margin:0 auto;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px;}
+  .topbar .eyebrow{
+    text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:600;
+    color:rgba(255,255,255,.65);margin-bottom:6px;
+  }
+  .topbar h1{font-size:26px;font-weight:700;letter-spacing:-.01em;}
+  .topbar .sub{color:rgba(255,255,255,.75);font-size:13px;margin-top:4px;}
+  .topbar-stamp{
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(255,255,255,.8);
+    background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);
+    padding:8px 12px;border-radius:8px;
+  }
+
+  .wrap{max-width:1280px;margin:0 auto;padding:0 28px;}
+
+  /* ---------- Warehouse yard ---------- */
+  .yard{margin-top:-14px;}
+  .yard-head{display:flex;justify-content:space-between;align-items:center;margin:26px 0 12px;}
+  .yard-head h2{font-size:15px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;}
+  .yard-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px;
+  }
+  .yard-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 14px 12px;box-shadow:var(--shadow);
+  }
+  .yard-card .vol{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:var(--steel-dark);}
+  .yard-card .stock-num{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;margin:2px 0 8px;}
+  .container-stack{display:flex;gap:2px;align-items:flex-end;height:16px;margin-bottom:10px;}
+  .crate{
+    width:9px;height:14px;border-radius:1px;
+    background:repeating-linear-gradient(0deg,var(--amber) 0 2px, #d4670f 2px 4px);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.12);
+    flex:0 0 auto;
+  }
+  .crate.empty-slot{background:var(--grey-tint);box-shadow:inset 0 0 0 1px var(--line);}
+  .crate-overflow{font-size:10px;color:var(--muted);align-self:center;font-family:'JetBrains Mono',monospace;}
+  .yard-card .mini-stats{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--muted);}
+  .yard-card .mini-stats span b{color:var(--ink);font-family:'JetBrains Mono',monospace;font-weight:600;}
+
+  .btn{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:13px;cursor:pointer;
+    border-radius:8px;border:1px solid transparent;padding:9px 15px;transition:.15s;
+  }
+  .btn-primary{background:var(--steel);color:#fff;}
+  .btn-primary:hover{background:var(--steel-dark);}
+  .btn-amber{background:var(--amber);color:#fff;}
+  .btn-amber:hover{background:#c8620f;}
+  .btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--line);}
+  .btn-ghost:hover{border-color:var(--steel);}
+  .btn-sm{padding:5px 10px;font-size:12px;border-radius:6px;}
+  .btn-danger{background:var(--red-tint);color:var(--red);}
+  .btn-danger:hover{background:#f6c9c5;}
+  .btn-steel{background:var(--steel-tint);color:var(--steel-dark);}
+  .btn-steel:hover{background:#d5e2e9;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+
+  /* ---------- Tabs ---------- */
+  .tabs{display:flex;gap:4px;margin:30px 0 16px;border-bottom:1px solid var(--line);}
+  .tab-btn{
+    background:none;border:none;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14.5px;
+    color:var(--muted);padding:10px 4px;margin-right:22px;cursor:pointer;border-bottom:2px solid transparent;
+  }
+  .tab-btn.active{color:var(--steel-dark);border-color:var(--amber);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  /* ---------- Controls row ---------- */
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;justify-content:space-between;}
+  .controls-left{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  input[type=text],input[type=search],select,input[type=number]{
+    font-family:'Inter',sans-serif;font-size:13.5px;border:1px solid var(--line);border-radius:8px;
+    padding:9px 11px;background:var(--surface);color:var(--ink);
+  }
+  input:focus,select:focus{outline:2px solid var(--steel);outline-offset:1px;}
+  .search-box{min-width:230px;}
+
+  /* ---------- Table ---------- */
+  .table-scroll{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{
+    text-align:left;background:var(--steel-tint);color:var(--steel-dark);
+    font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;
+    padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover td{background:#F7F9FA;}
+  tbody tr.row-red td{background:var(--red-tint);}
+  tbody tr.row-red:hover td{background:#f6d6d3;}
+  tbody tr.row-orange td{background:var(--orange-tint);}
+  tbody tr.row-orange:hover td{background:#fbe3bf;}
+  .empty-row td{text-align:center;color:var(--muted);padding:34px;font-style:italic;}
+
+  .badge{
+    display:inline-block;padding:3px 9px;border-radius:100px;font-size:11.5px;font-weight:600;
+    font-family:'Inter',sans-serif;white-space:nowrap;
+  }
+  .badge-working{background:var(--green-tint);color:var(--green);}
+  .badge-idle{background:var(--grey-tint);color:var(--grey);}
+  .badge-repair{background:var(--yellow-tint);color:var(--yellow);}
+  .badge-removed{background:var(--blue-tint);color:var(--blue);}
+
+  .op-tag{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);}
+  .days-num{font-family:'JetBrains Mono',monospace;font-weight:600;}
+  .reminder-text{color:var(--orange);font-weight:600;font-size:12px;}
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap;max-width:190px;}
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop{
+    display:none;position:fixed;inset:0;background:rgba(20,26,32,.5);
+    align-items:center;justify-content:center;z-index:100;padding:20px;
+  }
+  .modal-backdrop.active{display:flex;}
+  .modal{
+    background:var(--surface);border-radius:14px;max-width:460px;width:100%;
+    padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.25);max-height:90vh;overflow-y:auto;
+  }
+  .modal h3{font-size:17px;margin-bottom:16px;color:var(--steel-dark);}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;}
+  .field input,.field select{width:100%;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+  .qty-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:40px;}
+
+  @media(max-width:640px){
+    .topbar-inner{flex-direction:column;align-items:flex-start;}
+    .controls{flex-direction:column;align-items:stretch;}
+    .controls-left{flex-direction:column;align-items:stretch;}
+    table{font-size:12px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div>
+      <div class="eyebrow">Транс Инвест · управление парком</div>
+      <h1>Учёт контейнеров</h1>
+      <div class="sub">Склад, активные объекты, история и клиенты — в реальном времени</div>
+    </div>
+    <div class="topbar-stamp" id="todayStamp"></div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="yard">
+    <div class="yard-head">
+      <h2>Склад — наличие по объёмам</h2>
+      <button class="btn btn-amber" onclick="openStockModal()">Ввести количество</button>
+    </div>
+    <div class="yard-grid" id="yardGrid"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="active" onclick="switchTab('active')">Активные контейнеры</button>
+    <button class="tab-btn" data-tab="history" onclick="switchTab('history')">История</button>
+  </div>
+
+  <!-- ACTIVE TAB -->
+  <div class="tab-panel active" id="panel-active">
+    <div class="controls">
+      <div class="controls-left">
+        <input type="search" id="searchInput" class="search-box" placeholder="Поиск по клиенту или адресу…" oninput="renderActiveTable()">
+        <select id="statusFilter" onchange="renderActiveTable()">
+          <option value="Все">Статус: все</option>
+          <option value="В работе">В работе</option>
+          <option value="В простое">В простое</option>
+          <option value="В ремонте">В ремонте</option>
+        </select>
+        <select id="typeFilter" onchange="renderActiveTable()">
+          <option value="Все">Операция: все</option>
+          <option value="Постановка">Постановка</option>
+          <option value="Замена">Замена</option>
+          <option value="Снятие">Снятие</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="openAddModal()">+ Добавить контейнер</button>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>№</th><th>Объём</th><th>Клиент</th><th>Адрес</th><th>Статус</th>
+            <th>Операция</th><th>Установлен</th><th>Дней без движ.</th><th>Напоминание</th><th>Действия</th>
+          </tr>
+        </thead>
+        <tbody id="activeTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div class="tab-panel" id="panel-history">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>№</th><th>Объём</th><th>Номер</th><th>Клиент</th><th>Адрес</th>
+            <th>Установлен</th><th>Снят</th><th>Операция</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer id="statusFooter">Подключение к базе данных…</footer>
+</div>
+
+<!-- Add/Edit modal -->
+<div class="modal-backdrop" id="containerModalBackdrop">
+  <div class="modal">
+    <h3 id="containerModalTitle">Добавить контейнер</h3>
+    <input type="hidden" id="editId">
+    <div class="field">
+      <label>Объём</label>
+      <select id="f-volume"></select>
+    </div>
+    <div class="field">
+      <label>Клиент</label>
+      <input type="text" id="f-client" placeholder="Название клиента">
+    </div>
+    <div class="field">
+      <label>Адрес</label>
+      <input type="text" id="f-address" placeholder="Адрес объекта">
+    </div>
+    <div class="field">
+      <label>Дата постановки</label>
+      <input type="date" id="f-installDate">
+    </div>
+    <div class="field">
+      <label>Статус</label>
+      <select id="f-status">
+        <option>В работе</option>
+        <option>В простое</option>
+        <option>В ремонте</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Тип операции</label>
+      <select id="f-type">
+        <option>Постановка</option>
+        <option>Замена</option>
+        <option>Снятие</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('containerModalBackdrop')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveContainer()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Stock quantity modal -->
+<div class="modal-backdrop" id="stockModalBackdrop">
+  <div class="modal">
+    <h3>Ввести количество на складе</h3>
+    <div class="qty-grid" id="stockQtyGrid"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('stockModalBackdrop')">Отмена</button>
+      <button class="btn btn-primary" onclick="saveStock()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Replace modal -->
+<div class="modal-backdrop" id="replaceModalBackdrop">
+  <div class="modal">
+    <h3>Заменить контейнер</h3>
+    <p style="font-size:13px;color:var(--muted);margin-top:-8px;" id="replaceInfo"></p>
+    <div class="field">
+      <label>Новый контейнер (из наличия на складе)</label>
+      <select id="f-replace-volume"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('replaceModalBackdrop')">Отмена</button>
+      <button class="btn btn-amber" onclick="confirmReplace()">Подтвердить замену</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============ CONFIG & STATE ============ */
+const VOLUMES = [8,16,20,25,27,36,38];
+
+const SUPABASE_URL = 'https://njwtbqoiqqwyhpbkztui.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_JNHN-VmbDF5iFgNz8E-IaA_vSZoatK4';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let containers = [];
+let stock = {};
+VOLUMES.forEach(v=>stock[v]=0);
+let numCounter = 0;
+let replaceTargetId = null;
+
+/* ---- Row <-> JS object mapping ---- */
+function rowToContainer(r){
+  return {
+    id: r.id, number: r.number, volume: r.volume, client: r.client, address: r.address,
+    status: r.status, type: r.type, installDate: r.install_date, removalDate: r.removal_date,
+    prevType: r.prev_type
+  };
+}
+function containerToRow(c){
+  return {
+    id: c.id, number: c.number, volume: c.volume, client: c.client, address: c.address,
+    status: c.status, type: c.type, install_date: c.installDate, removal_date: c.removalDate,
+    prev_type: c.prevType
+  };
+}
+
+function setFooterStatus(text, isError){
+  const el = document.getElementById('statusFooter');
+  if(!el) return;
+  el.textContent = text;
+  el.style.color = isError ? 'var(--red)' : '';
+}
+
+/* ---- Load everything from Supabase ---- */
+async function loadAll(){
+  const [contRes, stockRes, counterRes] = await Promise.all([
+    sb.from('containers').select('*'),
+    sb.from('stock').select('*'),
+    sb.from('counters').select('*').eq('key','container_number')
+  ]);
+  if(contRes.error || stockRes.error || counterRes.error){
+    setFooterStatus('Ошибка подключения к базе данных. Проверьте интернет и настройки Supabase.', true);
+    console.error(contRes.error || stockRes.error || counterRes.error);
+    return;
+  }
+  containers = (contRes.data||[]).map(rowToContainer);
+  stock = {}; VOLUMES.forEach(v=>stock[v]=0);
+  (stockRes.data||[]).forEach(r=>{ stock[r.volume] = r.qty; });
+  numCounter = (counterRes.data && counterRes.data[0]) ? counterRes.data[0].value : 0;
+  setFooterStatus('Общая база данных · изменения видны всем сотрудникам в реальном времени');
+}
+
+/* ---- Write helpers ---- */
+async function upsertContainerRow(c){
+  const { error } = await sb.from('containers').upsert(containerToRow(c));
+  if(error){ alert('Ошибка сохранения контейнера: '+error.message); console.error(error); }
+}
+async function deleteContainerRow(id){
+  const { error } = await sb.from('containers').delete().eq('id', id);
+  if(error){ alert('Ошибка удаления: '+error.message); console.error(error); }
+}
+async function syncStock(){
+  const rows = VOLUMES.map(v=>({volume:v, qty: stock[v]||0}));
+  const { error } = await sb.from('stock').upsert(rows);
+  if(error){ alert('Ошибка сохранения склада: '+error.message); console.error(error); }
+}
+async function syncCounter(){
+  const { error } = await sb.from('counters').upsert({key:'container_number', value:numCounter});
+  if(error){ console.error(error); }
+}
+
+/* ---- Realtime: refresh when any other user changes data ---- */
+sb.channel('containers-live')
+  .on('postgres_changes', {event:'*', schema:'public', table:'containers'}, ()=>{ loadAll().then(renderAll); })
+  .on('postgres_changes', {event:'*', schema:'public', table:'stock'}, ()=>{ loadAll().then(renderAll); })
+  .subscribe();
+
+/* ============ HELPERS ============ */
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function formatDate(iso){
+  if(!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  return `${d}.${m}.${y}`;
+}
+function daysSince(iso){
+  if(!iso) return 0;
+  const start = new Date(iso+'T00:00:00');
+  const now = new Date();
+  const todayMid = new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  return Math.floor((todayMid - start) / 86400000);
+}
+function nextNumber(){
+  numCounter += 1;
+  return 'К-' + String(numCounter).padStart(4,'0');
+}
+function stockDelta(status, type){
+  if(type === 'Постановка' && status === 'В работе') return -1;
+  if(type === 'Снятие') return 1;
+  return 0;
+}
+function isHistory(c){ return c.type === 'Снятие'; }
+
+function badgeClass(status){
+  if(status==='В работе') return 'badge-working';
+  if(status==='В простое') return 'badge-idle';
+  if(status==='В ремонте') return 'badge-repair';
+  return 'badge-idle';
+}
+
+// Returns {red, orange, reminderText}
+function highlightFor(c){
+  const d = daysSince(c.installDate);
+  let red=false, orange=false, reminderText='';
+  // 5.1
+  if(c.status==='В работе' && c.type==='Постановка' && d>3) red=true;
+  // 5.2
+  if((c.status==='В работе' || c.status==='В простое') && c.type==='Замена' && d>7) red=true;
+  // 5.3
+  if(c.type==='Замена' && d>7){
+    reminderText = 'Требуется замена!';
+    if(!red) orange=true;
+  }
+  return {red, orange, reminderText, days:d};
+}
+
+/* ============ RENDER: YARD / STOCK ============ */
+function countsForVolume(vol){
+  const active = containers.filter(c=>!isHistory(c) && c.volume===vol);
+  return {
+    working: active.filter(c=>c.status==='В работе').length,
+    idle: active.filter(c=>c.status==='В простое').length,
+    repair: active.filter(c=>c.status==='В ремонте').length,
+  };
+}
+function renderYard(){
+  const grid = document.getElementById('yardGrid');
+  grid.innerHTML = VOLUMES.map(v=>{
+    const qty = stock[v]||0;
+    const counts = countsForVolume(v);
+    const shown = Math.min(qty,10);
+    let crates = '';
+    for(let i=0;i<shown;i++) crates += '<div class="crate"></div>';
+    let overflow = qty>10 ? `<span class="crate-overflow">+${qty-10}</span>` : '';
+    if(qty===0) crates = '<div class="crate empty-slot"></div>';
+    return `
+      <div class="yard-card">
+        <div class="vol">${v} м³</div>
+        <div class="stock-num">${qty}</div>
+        <div class="container-stack">${crates}${overflow}</div>
+        <div class="mini-stats">
+          <span>В работе — <b>${counts.working}</b></span>
+          <span>В простое — <b>${counts.idle}</b></span>
+          <span>В ремонте — <b>${counts.repair}</b></span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ============ RENDER: ACTIVE TABLE ============ */
+function renderActiveTable(){
+  const search = (document.getElementById('searchInput').value||'').toLowerCase().trim();
+  const statusF = document.getElementById('statusFilter').value;
+  const typeF = document.getElementById('typeFilter').value;
+
+  let rows = containers.filter(c=>!isHistory(c));
+  if(search){
+    rows = rows.filter(c => (c.client||'').toLowerCase().includes(search) || (c.address||'').toLowerCase().includes(search));
+  }
+  if(statusF !== 'Все') rows = rows.filter(c=>c.status===statusF);
+  if(typeF !== 'Все') rows = rows.filter(c=>c.type===typeF);
+
+  rows = rows.slice().sort((a,b)=> (b.installDate||'').localeCompare(a.installDate||''));
+
+  const tbody = document.getElementById('activeTableBody');
+  if(rows.length===0){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="10">Нет контейнеров, соответствующих условиям</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map((c,i)=>{
+    const h = highlightFor(c);
+    const rowClass = h.red ? 'row-red' : (h.orange ? 'row-orange' : '');
+    return `
+      <tr class="${rowClass}">
+        <td class="mono">${i+1}</td>
+        <td class="mono">${c.volume} м³</td>
+        <td>${escapeHtml(c.client)}</td>
+        <td>${escapeHtml(c.address)}</td>
+        <td><span class="badge ${badgeClass(c.status)}">${c.status}</span></td>
+        <td class="op-tag">${c.type}</td>
+        <td class="mono">${formatDate(c.installDate)}</td>
+        <td class="days-num">${h.days}</td>
+        <td>${h.reminderText ? `<span class="reminder-text">${h.reminderText}</span>` : ''}</td>
+        <td>
+          <div class="row-actions">
+            <button class="btn btn-ghost btn-sm" onclick="openEditModal('${c.id}')">Ред.</button>
+            <button class="btn btn-amber btn-sm" onclick="openReplaceModal('${c.id}')">Заменить</button>
+            <button class="btn btn-steel btn-sm" onclick="returnToWarehouse('${c.id}')">Снятие</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteContainer('${c.id}')">Удал.</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+/* ============ RENDER: HISTORY TABLE ============ */
+function renderHistoryTable(){
+  let rows = containers.filter(isHistory);
+  rows = rows.slice().sort((a,b)=> (b.removalDate||'').localeCompare(a.removalDate||''));
+  const tbody = document.getElementById('historyTableBody');
+  if(rows.length===0){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">История пуста</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((c,i)=>`
+    <tr>
+      <td class="mono">${i+1}</td>
+      <td class="mono">${c.volume} м³</td>
+      <td class="mono">${c.number}</td>
+      <td>${escapeHtml(c.client)}</td>
+      <td>${escapeHtml(c.address)}</td>
+      <td class="mono">${formatDate(c.installDate)}</td>
+      <td class="mono">${formatDate(c.removalDate)}</td>
+      <td class="op-tag">${c.prevType || c.type}</td>
+    </tr>`).join('');
+}
+
+function escapeHtml(str){
+  if(str==null) return '';
+  return String(str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+
+/* ============ RENDER ALL ============ */
+function renderAll(){
+  renderYard();
+  renderActiveTable();
+  renderHistoryTable();
+}
+
+/* ============ TABS ============ */
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+}
+
+/* ============ MODALS: ADD/EDIT ============ */
+function fillVolumeSelect(selectEl){
+  selectEl.innerHTML = VOLUMES.map(v=>`<option value="${v}">${v} м³</option>`).join('');
+}
+function openAddModal(){
+  document.getElementById('containerModalTitle').textContent = 'Добавить контейнер';
+  document.getElementById('editId').value = '';
+  const volSel = document.getElementById('f-volume');
+  fillVolumeSelect(volSel);
+  document.getElementById('f-client').value = '';
+  document.getElementById('f-address').value = '';
+  document.getElementById('f-installDate').value = todayISO();
+  document.getElementById('f-status').value = 'В работе';
+  document.getElementById('f-type').value = 'Постановка';
+  volSel.disabled = false;
+  openModal('containerModalBackdrop');
+}
+function openEditModal(id){
+  const c = containers.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('containerModalTitle').textContent = 'Редактировать контейнер';
+  document.getElementById('editId').value = id;
+  const volSel = document.getElementById('f-volume');
+  fillVolumeSelect(volSel);
+  volSel.value = c.volume;
+  volSel.disabled = true; // volume not editable per spec
+  document.getElementById('f-client').value = c.client;
+  document.getElementById('f-address').value = c.address;
+  document.getElementById('f-installDate').value = c.installDate || todayISO();
+  document.getElementById('f-status').value = c.status;
+  document.getElementById('f-type').value = c.type;
+  openModal('containerModalBackdrop');
+}
+
+async function saveContainer(){
+  const id = document.getElementById('editId').value;
+  const volume = parseInt(document.getElementById('f-volume').value,10);
+  const client = document.getElementById('f-client').value.trim();
+  const address = document.getElementById('f-address').value.trim();
+  const installDate = document.getElementById('f-installDate').value;
+  const status = document.getElementById('f-status').value;
+  const type = document.getElementById('f-type').value;
+
+  if(!client || !address){
+    alert('Заполните клиента и адрес.');
+    return;
+  }
+  if(!installDate){
+    alert('Укажите дату постановки.');
+    return;
+  }
+
+  let stockTouched = false;
+  let newContainer = null;
+
+  if(id){
+    // EDIT existing
+    const c = containers.find(x=>x.id===id);
+    if(!c) return;
+    const oldType = c.type;
+
+    if(oldType !== 'Снятие' && type === 'Снятие'){
+      // moving to history
+      stock[c.volume] = (stock[c.volume]||0) + 1;
+      c.removalDate = todayISO();
+      c.prevType = oldType; // remember what operation it was, for history display
+      stockTouched = true;
+    } else if(oldType === 'Снятие' && type !== 'Снятие'){
+      // returning from history
+      if(type === 'Постановка'){
+        stock[c.volume] = (stock[c.volume]||0) - 1;
+      }
+      c.removalDate = null;
+      stockTouched = true;
+    }
+    // Постановка <-> Замена transitions: no stock change (Замена never affects stock)
+
+    c.client = client;
+    c.address = address;
+    c.installDate = installDate;
+    c.status = status;
+    c.type = type;
+    newContainer = c;
+  } else {
+    // ADD new
+    const c = {
+      id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random())),
+      number: nextNumber(),
+      volume, client, address, status, type,
+      installDate: installDate,
+      removalDate: type==='Снятие' ? todayISO() : null,
+      prevType: null,
+    };
+    stock[volume] = (stock[volume]||0) + stockDelta(status,type);
+    containers.push(c);
+    stockTouched = true;
+    newContainer = c;
+    await syncCounter();
+  }
+
+  await upsertContainerRow(newContainer);
+  if(stockTouched) await syncStock();
+  closeModal('containerModalBackdrop');
+  renderAll();
+}
+
+async function returnToWarehouse(id){
+  const c = containers.find(x=>x.id===id);
+  if(!c) return;
+  if(isHistory(c)) return;
+  if(!confirm(`Снять контейнер у клиента «${c.client}» (${c.address}) и вернуть на склад?`)) return;
+  stock[c.volume] = (stock[c.volume]||0) + 1;
+  c.prevType = c.type;
+  c.type = 'Снятие';
+  c.status = c.status; // status left as-is, container leaves active table via isHistory()
+  c.removalDate = todayISO();
+  await upsertContainerRow(c);
+  await syncStock();
+  renderAll();
+}
+
+async function deleteContainer(id){
+  const c = containers.find(x=>x.id===id);
+  if(!c) return;
+  if(!confirm('Удалить контейнер безвозвратно?')) return;
+  stock[c.volume] = (stock[c.volume]||0) - stockDelta(c.status,c.type);
+  containers = containers.filter(x=>x.id!==id);
+  await deleteContainerRow(id);
+  await syncStock();
+  renderAll();
+}
+
+/* ============ MODALS: STOCK ============ */
+function openStockModal(){
+  const grid = document.getElementById('stockQtyGrid');
+  grid.innerHTML = VOLUMES.map(v=>`
+    <div class="field">
+      <label>${v} м³</label>
+      <input type="number" min="0" id="stock-input-${v}" value="${stock[v]||0}">
+    </div>`).join('');
+  openModal('stockModalBackdrop');
+}
+async function saveStock(){
+  VOLUMES.forEach(v=>{
+    const val = parseInt(document.getElementById('stock-input-'+v).value,10);
+    stock[v] = isNaN(val) || val<0 ? 0 : val;
+  });
+  await syncStock();
+  closeModal('stockModalBackdrop');
+  renderAll();
+}
+
+/* ============ MODALS: REPLACE ============ */
+function openReplaceModal(id){
+  const c = containers.find(x=>x.id===id);
+  if(!c) return;
+  replaceTargetId = id;
+  document.getElementById('replaceInfo').textContent =
+    `${c.client} · ${c.address} · текущий объём ${c.volume} м³. Наличие на складе для этого объёма: ${stock[c.volume]||0} шт.`;
+  const sel = document.getElementById('f-replace-volume');
+  sel.innerHTML = `<option value="${c.volume}">${c.volume} м³ (в наличии: ${stock[c.volume]||0})</option>`;
+  openModal('replaceModalBackdrop');
+}
+async function confirmReplace(){
+  const c = containers.find(x=>x.id===replaceTargetId);
+  if(!c) return;
+  // Per spec: existing record is updated in place, install date resets, type becomes "Замена".
+  // Stock quantity is NOT affected by a replacement operation.
+  c.installDate = todayISO();
+  c.type = 'Замена';
+  await upsertContainerRow(c);
+  closeModal('replaceModalBackdrop');
+  renderAll();
+}
+
+/* ============ MODAL GENERIC ============ */
+function openModal(id){ document.getElementById(id).classList.add('active'); }
+function closeModal(id){ document.getElementById(id).classList.remove('active'); }
+document.querySelectorAll('.modal-backdrop').forEach(bd=>{
+  bd.addEventListener('click', e=>{ if(e.target===bd) bd.classList.remove('active'); });
+});
+
+/* ============ INIT ============ */
+document.getElementById('todayStamp').textContent = 'Сегодня: ' + formatDate(todayISO());
+loadAll().then(renderAll);
+</script>
+</body>
+</html>
