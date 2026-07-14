@@ -213,22 +213,23 @@
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" data-tab="active" onclick="switchTab('active')">Активные контейнеры</button>
+    <button class="tab-btn active" data-tab="active8" onclick="switchTab('active8')">Активные 8 м³</button>
+    <button class="tab-btn" data-tab="activeOther" onclick="switchTab('activeOther')">Активные 20 м³+</button>
     <button class="tab-btn" data-tab="history" onclick="switchTab('history')">История</button>
   </div>
 
-  <!-- ACTIVE TAB -->
-  <div class="tab-panel active" id="panel-active">
+  <!-- ACTIVE TAB — 8 M3 -->
+  <div class="tab-panel active" id="panel-active8">
     <div class="controls">
       <div class="controls-left">
-        <input type="search" id="searchInput" class="search-box" placeholder="Поиск по клиенту или адресу…" oninput="renderActiveTable()">
-        <select id="statusFilter" onchange="renderActiveTable()">
+        <input type="search" id="searchInput8" class="search-box" placeholder="Поиск по клиенту или адресу…" oninput="renderActiveTable8()">
+        <select id="statusFilter8" onchange="renderActiveTable8()">
           <option value="Все">Статус: все</option>
           <option value="В работе">В работе</option>
           <option value="В простое">В простое</option>
           <option value="В ремонте">В ремонте</option>
         </select>
-        <select id="typeFilter" onchange="renderActiveTable()">
+        <select id="typeFilter8" onchange="renderActiveTable8()">
           <option value="Все">Операция: все</option>
           <option value="Постановка">Постановка</option>
           <option value="Замена">Замена</option>
@@ -238,7 +239,6 @@
       <button class="btn btn-primary" onclick="openAddModal()">+ Добавить контейнер</button>
     </div>
 
-    <h3 class="section-title">Контейнеры 8 м³</h3>
     <div class="table-scroll">
       <table>
         <thead>
@@ -250,8 +250,29 @@
         <tbody id="activeTableBody8"></tbody>
       </table>
     </div>
+  </div>
 
-    <h3 class="section-title">Контейнеры 20 м³+</h3>
+  <!-- ACTIVE TAB — 20 M3+ -->
+  <div class="tab-panel" id="panel-activeOther">
+    <div class="controls">
+      <div class="controls-left">
+        <input type="search" id="searchInputOther" class="search-box" placeholder="Поиск по клиенту или адресу…" oninput="renderActiveTableOther()">
+        <select id="statusFilterOther" onchange="renderActiveTableOther()">
+          <option value="Все">Статус: все</option>
+          <option value="В работе">В работе</option>
+          <option value="В простое">В простое</option>
+          <option value="В ремонте">В ремонте</option>
+        </select>
+        <select id="typeFilterOther" onchange="renderActiveTableOther()">
+          <option value="Все">Операция: все</option>
+          <option value="Постановка">Постановка</option>
+          <option value="Замена">Замена</option>
+          <option value="Снятие">Снятие</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="openAddModal()">+ Добавить контейнер</button>
+    </div>
+
     <div class="table-scroll">
       <table>
         <thead>
@@ -540,26 +561,37 @@ function renderYard(){
   }).join('');
 }
 
-/* ============ RENDER: ACTIVE TABLE ============ */
-function renderActiveTable(){
-  const search = (document.getElementById('searchInput').value||'').toLowerCase().trim();
-  const statusF = document.getElementById('statusFilter').value;
-  const typeF = document.getElementById('typeFilter').value;
+/* ============ RENDER: ACTIVE TABLES (split by volume, independent filters) ============ */
+function renderActiveTable8(){
+  const search = (document.getElementById('searchInput8').value||'').toLowerCase().trim();
+  const statusF = document.getElementById('statusFilter8').value;
+  const typeF = document.getElementById('typeFilter8').value;
 
-  let rows = containers.filter(c=>!isHistory(c));
+  let rows = containers.filter(c=>!isHistory(c) && c.volume===8);
   if(search){
     rows = rows.filter(c => (c.client||'').toLowerCase().includes(search) || (c.address||'').toLowerCase().includes(search));
   }
   if(statusF !== 'Все') rows = rows.filter(c=>c.status===statusF);
   if(typeF !== 'Все') rows = rows.filter(c=>c.type===typeF);
-
   rows = rows.slice().sort((a,b)=> (b.installDate||'').localeCompare(a.installDate||''));
 
-  const rows8 = rows.filter(c=>c.volume===8);
-  const rowsOther = rows.filter(c=>c.volume!==8);
+  renderActiveTableInto('activeTableBody8', rows);
+}
 
-  renderActiveTableInto('activeTableBody8', rows8);
-  renderActiveTableInto('activeTableBodyOther', rowsOther);
+function renderActiveTableOther(){
+  const search = (document.getElementById('searchInputOther').value||'').toLowerCase().trim();
+  const statusF = document.getElementById('statusFilterOther').value;
+  const typeF = document.getElementById('typeFilterOther').value;
+
+  let rows = containers.filter(c=>!isHistory(c) && c.volume!==8);
+  if(search){
+    rows = rows.filter(c => (c.client||'').toLowerCase().includes(search) || (c.address||'').toLowerCase().includes(search));
+  }
+  if(statusF !== 'Все') rows = rows.filter(c=>c.status===statusF);
+  if(typeF !== 'Все') rows = rows.filter(c=>c.type===typeF);
+  rows = rows.slice().sort((a,b)=> (b.installDate||'').localeCompare(a.installDate||''));
+
+  renderActiveTableInto('activeTableBodyOther', rows);
 }
 
 function renderActiveTableInto(tbodyId, rows){
@@ -634,7 +666,8 @@ function escapeHtml(str){
 /* ============ RENDER ALL ============ */
 function renderAll(){
   renderYard();
-  renderActiveTable();
+  renderActiveTable8();
+  renderActiveTableOther();
   renderHistoryTable();
 }
 
