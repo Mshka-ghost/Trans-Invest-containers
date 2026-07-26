@@ -131,6 +131,10 @@
 
   /* ---------- Table ---------- */
   .table-scroll{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  .summary-bar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+  .summary-chip{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:12.5px;color:var(--muted);box-shadow:var(--shadow);}
+  .summary-chip b{color:var(--ink);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;margin-left:4px;}
+  .summary-chip.total{border-color:var(--amber);background:#fff8ec;}
   .section-title{font-size:14px;font-weight:600;color:var(--steel-dark);margin:22px 0 10px;}
   .section-title:first-of-type{margin-top:6px;}
   table{width:100%;border-collapse:collapse;font-size:13px;}
@@ -220,6 +224,7 @@
 
   <!-- ACTIVE TAB — 8 M3 -->
   <div class="tab-panel active" id="panel-active8">
+    <div class="summary-bar" id="summaryBar8"></div>
     <div class="controls">
       <div class="controls-left">
         <input type="search" id="searchInput8" class="search-box" placeholder="Поиск по клиенту или адресу…" oninput="renderActiveTable8()">
@@ -254,6 +259,7 @@
 
   <!-- ACTIVE TAB — 20 M3+ -->
   <div class="tab-panel" id="panel-activeOther">
+    <div class="summary-bar" id="summaryBarOther"></div>
     <div class="controls">
       <div class="controls-left">
         <input type="search" id="searchInputOther" class="search-box" placeholder="Поиск по клиенту или адресу…" oninput="renderActiveTableOther()">
@@ -498,10 +504,11 @@ function nextNumber(){
   numCounter += 1;
   return 'К-' + String(numCounter).padStart(4,'0');
 }
-function stockDelta(status, type){
-  if(type === 'Постановка' && status === 'В работе') return -1;
-  if(type === 'Снятие') return 1;
-  return 0;
+function freeForVolume(v){
+  const active = containers.filter(c=>!isHistory(c) && c.volume===v);
+  const working = active.filter(c=>c.status==='В работе').length;
+  const repair = active.filter(c=>c.status==='В ремонте').length;
+  return Math.max(0, (stock[v]||0) - working - repair);
 }
 function isHistory(c){ return c.type === 'Снятие'; }
 
@@ -533,7 +540,6 @@ function countsForVolume(vol){
   const active = containers.filter(c=>!isHistory(c) && c.volume===vol);
   return {
     working: active.filter(c=>c.status==='В работе').length,
-    idle: active.filter(c=>c.status==='В простое').length,
     repair: active.filter(c=>c.status==='В ремонте').length,
   };
 }
@@ -542,6 +548,7 @@ function renderYard(){
   grid.innerHTML = VOLUMES.map(v=>{
     const qty = stock[v]||0;
     const counts = countsForVolume(v);
+    const free = Math.max(0, qty - counts.working - counts.repair);
     const shown = Math.min(qty,10);
     let crates = '';
     for(let i=0;i<shown;i++) crates += '<div class="crate"></div>';
@@ -554,15 +561,37 @@ function renderYard(){
         <div class="container-stack">${crates}${overflow}</div>
         <div class="mini-stats">
           <span>В работе — <b>${counts.working}</b></span>
-          <span>В простое — <b>${counts.idle}</b></span>
+          <span>На складе — <b>${free}</b></span>
           <span>В ремонте — <b>${counts.repair}</b></span>
         </div>
       </div>`;
   }).join('');
 }
 
+/* ============ RENDER: SUMMARY BARS ============ */
+function summaryForVolumes(volumeList){
+  const active = containers.filter(c=>!isHistory(c) && volumeList.includes(c.volume));
+  const working = active.filter(c=>c.status==='В работе').length;
+  const repair = active.filter(c=>c.status==='В ремонте').length;
+  const total = volumeList.reduce((sum,v)=> sum + (stock[v]||0), 0);
+  const free = Math.max(0, total - working - repair);
+  return { working, repair, free, total };
+}
+
+function renderSummaryBar(elId, volumeList){
+  const s = summaryForVolumes(volumeList);
+  document.getElementById(elId).innerHTML = `
+    <div class="summary-chip">В работе <b>${s.working}</b></div>
+    <div class="summary-chip">На складе <b>${s.free}</b></div>
+    <div class="summary-chip">В ремонте <b>${s.repair}</b></div>
+    <div class="summary-chip total">Всего контейнеров <b>${s.total}</b></div>
+  `;
+}
+
 /* ============ RENDER: ACTIVE TABLES (split by volume, independent filters) ============ */
 function renderActiveTable8(){
+  renderSummaryBar('summaryBar8', [8]);
+
   const search = (document.getElementById('searchInput8').value||'').toLowerCase().trim();
   const statusF = document.getElementById('statusFilter8').value;
   const typeF = document.getElementById('typeFilter8').value;
@@ -579,6 +608,8 @@ function renderActiveTable8(){
 }
 
 function renderActiveTableOther(){
+  renderSummaryBar('summaryBarOther', VOLUMES.filter(v=>v!==8));
+
   const search = (document.getElementById('searchInputOther').value||'').toLowerCase().trim();
   const statusF = document.getElementById('statusFilterOther').value;
   const typeF = document.getElementById('typeFilterOther').value;
@@ -730,30 +761,19 @@ async function saveContainer(){
     return;
   }
 
-  let stockTouched = false;
   let newContainer = null;
 
   if(id){
     // EDIT existing
     const c = containers.find(x=>x.id===id);
     if(!c) return;
-    const oldType = c.type;
 
-    if(oldType !== 'Снятие' && type === 'Снятие'){
-      // moving to history
-      stock[c.volume] = (stock[c.volume]||0) + 1;
+    if(type === 'Снятие' && c.type !== 'Снятие'){
       c.removalDate = todayISO();
-      c.prevType = oldType; // remember what operation it was, for history display
-      stockTouched = true;
-    } else if(oldType === 'Снятие' && type !== 'Снятие'){
-      // returning from history
-      if(type === 'Постановка'){
-        stock[c.volume] = (stock[c.volume]||0) - 1;
-      }
+      c.prevType = c.type; // remember what operation it was, for history display
+    } else if(type !== 'Снятие' && c.type === 'Снятие'){
       c.removalDate = null;
-      stockTouched = true;
     }
-    // Постановка <-> Замена transitions: no stock change (Замена never affects stock)
 
     c.client = client;
     c.address = address;
@@ -771,15 +791,12 @@ async function saveContainer(){
       removalDate: type==='Снятие' ? todayISO() : null,
       prevType: null,
     };
-    stock[volume] = (stock[volume]||0) + stockDelta(status,type);
     containers.push(c);
-    stockTouched = true;
     newContainer = c;
     await syncCounter();
   }
 
   await upsertContainerRow(newContainer);
-  if(stockTouched) await syncStock();
   closeModal('containerModalBackdrop');
   renderAll();
 }
@@ -789,13 +806,10 @@ async function returnToWarehouse(id){
   if(!c) return;
   if(isHistory(c)) return;
   if(!confirm(`Снять контейнер у клиента «${c.client}» (${c.address}) и вернуть на склад?`)) return;
-  stock[c.volume] = (stock[c.volume]||0) + 1;
   c.prevType = c.type;
   c.type = 'Снятие';
-  c.status = c.status; // status left as-is, container leaves active table via isHistory()
   c.removalDate = todayISO();
   await upsertContainerRow(c);
-  await syncStock();
   renderAll();
 }
 
@@ -803,10 +817,8 @@ async function deleteContainer(id){
   const c = containers.find(x=>x.id===id);
   if(!c) return;
   if(!confirm('Удалить контейнер безвозвратно?')) return;
-  stock[c.volume] = (stock[c.volume]||0) - stockDelta(c.status,c.type);
   containers = containers.filter(x=>x.id!==id);
   await deleteContainerRow(id);
-  await syncStock();
   renderAll();
 }
 
@@ -840,11 +852,11 @@ function openReplaceModal(id){
   const sel = document.getElementById('f-replace-volume');
   sel.innerHTML = VOLUMES.map(v=>{
     const isCurrent = v===c.volume;
-    const avail = stock[v]||0;
+    const avail = freeForVolume(v);
     const disabled = (!isCurrent && avail<=0) ? 'disabled' : '';
     const label = isCurrent
-      ? `${v} м³ — текущий (на складе: ${avail})`
-      : `${v} м³ (на складе: ${avail})`;
+      ? `${v} м³ — текущий (свободно на складе: ${avail})`
+      : `${v} м³ (свободно на складе: ${avail})`;
     return `<option value="${v}" ${disabled}>${label}</option>`;
   }).join('');
   sel.value = c.volume;
@@ -856,15 +868,13 @@ async function confirmReplace(){
   const newVolume = parseInt(document.getElementById('f-replace-volume').value,10);
 
   if(newVolume !== c.volume){
-    if((stock[newVolume]||0) <= 0){
+    if(freeForVolume(newVolume) <= 0){
       alert('На складе нет свободных контейнеров этого объёма.');
       return;
     }
-    // Старый контейнер возвращается на склад, новый — забирается со склада.
-    stock[c.volume] = (stock[c.volume]||0) + 1;
-    stock[newVolume] = (stock[newVolume]||0) - 1;
+    // Общее купленное количество не меняется — просто у контейнера меняется объём,
+    // «На складе» пересчитывается автоматически.
     c.volume = newVolume;
-    await syncStock();
   }
 
   c.installDate = todayISO();
