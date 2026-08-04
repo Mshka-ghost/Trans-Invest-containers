@@ -2,9 +2,11 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1B3A50">
 <title>Учёт контейнеров — Транс Инвест</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -45,6 +47,7 @@
   h1,h2,h3{font-family:'Space Grotesk',sans-serif; margin:0;}
   .mono{font-family:'JetBrains Mono',monospace;}
   ::selection{background:var(--amber-tint);}
+  :focus-visible{outline:2px solid var(--amber);outline-offset:2px;}
 
   /* ---------- Top bar ---------- */
   .topbar{
@@ -59,17 +62,35 @@
   }
   .topbar h1{font-size:26px;font-weight:700;letter-spacing:-.01em;}
   .topbar .sub{color:rgba(255,255,255,.75);font-size:13px;margin-top:4px;}
+  .topbar-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px;}
   .topbar-stamp{
     font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(255,255,255,.8);
     background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);
     padding:8px 12px;border-radius:8px;
   }
+  .actor-chip{
+    display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;
+    color:rgba(255,255,255,.85);background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.16);border-radius:100px;padding:5px 12px;
+    cursor:pointer;transition:.15s;font-family:'Inter',sans-serif;
+  }
+  .actor-chip:hover{background:rgba(255,255,255,.16);}
+  .actor-dot{width:6px;height:6px;border-radius:50%;background:#7FD18C;flex:0 0 auto;}
+  .actor-chip.unset .actor-dot{background:var(--amber);}
 
   .wrap{max-width:1280px;margin:0 auto;padding:0 28px;}
 
+  /* ---------- Connection strip ---------- */
+  .conn{
+    display:none;align-items:center;gap:9px;font-size:12.5px;font-weight:500;
+    padding:9px 14px;border-radius:8px;margin-top:18px;
+  }
+  .conn.show{display:flex;}
+  .conn.offline{background:var(--yellow-tint);color:#8A5C05;border:1px solid #EBD09A;}
+  .conn.error{background:var(--red-tint);color:var(--red);border:1px solid #F2BDB8;}
+
   /* ---------- Warehouse yard ---------- */
-  .yard{margin-top:-14px;}
-  .yard-head{display:flex;justify-content:space-between;align-items:center;margin:26px 0 12px;}
+  .yard-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:26px 0 12px;}
   .yard-head h2{font-size:15px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;}
   .yard-grid{
     display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px;
@@ -78,6 +99,7 @@
     background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
     padding:14px 14px 12px;box-shadow:var(--shadow);
   }
+  .yard-card.alert{border-color:#F2BDB8;box-shadow:0 0 0 1px #F2BDB8, var(--shadow);}
   .yard-card .vol{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:var(--steel-dark);}
   .yard-card .stock-num{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;margin:2px 0 8px;}
   .container-stack{display:flex;gap:2px;align-items:flex-end;height:16px;margin-bottom:10px;}
@@ -87,11 +109,14 @@
     box-shadow:inset 0 0 0 1px rgba(0,0,0,.12);
     flex:0 0 auto;
   }
+  .crate.free{background:repeating-linear-gradient(0deg,#9FB4C1 0 2px, #86A0B0 2px 4px);}
   .crate.empty-slot{background:var(--grey-tint);box-shadow:inset 0 0 0 1px var(--line);}
   .crate-overflow{font-size:10px;color:var(--muted);align-self:center;font-family:'JetBrains Mono',monospace;}
   .yard-card .mini-stats{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--muted);}
   .yard-card .mini-stats span b{color:var(--ink);font-family:'JetBrains Mono',monospace;font-weight:600;}
+  .yard-card .overuse{color:var(--red);font-weight:600;font-size:11.5px;margin-top:5px;}
 
+  /* ---------- Buttons ---------- */
   .btn{
     font-family:'Inter',sans-serif;font-weight:600;font-size:13px;cursor:pointer;
     border-radius:8px;border:1px solid transparent;padding:9px 15px;transition:.15s;
@@ -105,44 +130,69 @@
   .btn-sm{padding:5px 10px;font-size:12px;border-radius:6px;}
   .btn-danger{background:var(--red-tint);color:var(--red);}
   .btn-danger:hover{background:#f6c9c5;}
+  .btn-danger-solid{background:var(--red);color:#fff;}
+  .btn-danger-solid:hover{background:#b81f14;}
   .btn-steel{background:var(--steel-tint);color:var(--steel-dark);}
   .btn-steel:hover{background:#d5e2e9;}
   .btn:disabled{opacity:.4;cursor:not-allowed;}
 
   /* ---------- Tabs ---------- */
-  .tabs{display:flex;gap:4px;margin:30px 0 16px;border-bottom:1px solid var(--line);}
+  .tabs{display:flex;gap:0;margin:30px 0 16px;border-bottom:1px solid var(--line);overflow-x:auto;}
   .tab-btn{
     background:none;border:none;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14.5px;
     color:var(--muted);padding:10px 4px;margin-right:22px;cursor:pointer;border-bottom:2px solid transparent;
+    white-space:nowrap;flex:0 0 auto;
   }
+  .tab-btn:hover{color:var(--steel-dark);}
   .tab-btn.active{color:var(--steel-dark);border-color:var(--amber);}
+  .tab-btn .count{
+    font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;
+    background:var(--grey-tint);color:var(--muted);border-radius:100px;padding:1px 7px;margin-left:6px;
+  }
+  .tab-btn.active .count{background:var(--steel-tint);color:var(--steel-dark);}
   .tab-panel{display:none;}
   .tab-panel.active{display:block;}
 
   /* ---------- Controls row ---------- */
   .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;justify-content:space-between;}
   .controls-left{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
-  input[type=text],input[type=search],select,input[type=number]{
+  .controls-right{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  input[type=text],input[type=search],select,input[type=number],input[type=date]{
     font-family:'Inter',sans-serif;font-size:13.5px;border:1px solid var(--line);border-radius:8px;
     padding:9px 11px;background:var(--surface);color:var(--ink);
   }
   input:focus,select:focus{outline:2px solid var(--steel);outline-offset:1px;}
   .search-box{min-width:230px;}
+  .filter-reset{background:none;border:none;color:var(--steel);font-size:12.5px;font-weight:600;cursor:pointer;padding:6px 2px;}
+  .filter-reset:hover{text-decoration:underline;}
 
-  /* ---------- Table ---------- */
-  .table-scroll{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  /* ---------- Summary chips ---------- */
   .summary-bar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
   .summary-chip{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:12.5px;color:var(--muted);box-shadow:var(--shadow);}
   .summary-chip b{color:var(--ink);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;margin-left:4px;}
   .summary-chip.total{border-color:var(--amber);background:#fff8ec;}
-  .section-title{font-size:14px;font-weight:600;color:var(--steel-dark);margin:22px 0 10px;}
-  .section-title:first-of-type{margin-top:6px;}
-  table{width:100%;border-collapse:collapse;font-size:13px;}
+  .summary-chip.warn{border-color:#F2BDB8;background:var(--red-tint);color:var(--red);}
+  .summary-chip.warn b{color:var(--red);}
+
+  .section-title{font-size:14px;font-weight:600;color:var(--steel-dark);margin:22px 0 10px;display:flex;align-items:center;gap:8px;}
+  .section-title .count{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--muted);font-size:12px;}
+
+  /* ---------- Table ---------- */
+  .table-scroll{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    overflow:auto;box-shadow:var(--shadow);max-height:min(70vh,680px);
+  }
+  table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;}
   thead th{
     text-align:left;background:var(--steel-tint);color:var(--steel-dark);
     font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;
     padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;
+    position:sticky;top:0;z-index:2;
   }
+  thead th.sortable{cursor:pointer;user-select:none;}
+  thead th.sortable:hover{background:#dbe7ee;}
+  thead th .arrow{opacity:.35;margin-left:4px;font-size:10px;}
+  thead th.sorted .arrow{opacity:1;color:var(--amber);}
   tbody td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;}
   tbody tr:last-child td{border-bottom:none;}
   tbody tr:hover td{background:#F7F9FA;}
@@ -150,7 +200,8 @@
   tbody tr.row-red:hover td{background:#f6d6d3;}
   tbody tr.row-orange td{background:var(--orange-tint);}
   tbody tr.row-orange:hover td{background:#fbe3bf;}
-  .empty-row td{text-align:center;color:var(--muted);padding:34px;font-style:italic;}
+  .empty-row td{text-align:center;color:var(--muted);padding:34px;font-style:normal;}
+  .empty-row .empty-title{font-weight:600;color:var(--ink);font-family:'Space Grotesk',sans-serif;font-size:14px;display:block;margin-bottom:4px;}
 
   .badge{
     display:inline-block;padding:3px 9px;border-radius:100px;font-size:11.5px;font-weight:600;
@@ -164,7 +215,18 @@
   .op-tag{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);}
   .days-num{font-family:'JetBrains Mono',monospace;font-weight:600;}
   .reminder-text{color:var(--orange);font-weight:600;font-size:12px;}
-  .row-actions{display:flex;gap:6px;flex-wrap:wrap;max-width:190px;}
+  .reminder-text.hot{color:var(--red);}
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap;min-width:180px;}
+  .load-more{display:block;width:100%;margin-top:12px;}
+
+  /* ---------- Journal ---------- */
+  .journal-list{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+  .journal-item{display:flex;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line);font-size:13px;align-items:baseline;}
+  .journal-item:last-child{border-bottom:none;}
+  .journal-time{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted);white-space:nowrap;flex:0 0 118px;}
+  .journal-actor{font-weight:600;color:var(--steel-dark);flex:0 0 auto;}
+  .journal-text{color:var(--ink);}
+  .journal-empty{padding:34px;text-align:center;color:var(--muted);}
 
   /* ---------- Modal ---------- */
   .modal-backdrop{
@@ -177,19 +239,85 @@
     padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.25);max-height:90vh;overflow-y:auto;
   }
   .modal h3{font-size:17px;margin-bottom:16px;color:var(--steel-dark);}
+  .modal .hint{font-size:12.5px;color:var(--muted);margin:-10px 0 16px;line-height:1.45;}
   .field{margin-bottom:12px;}
   .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;}
   .field input,.field select{width:100%;}
+  .field .field-note{font-size:11.5px;color:var(--muted);margin-top:4px;}
+  .field.invalid input,.field.invalid select{border-color:var(--red);}
+  .field .err{display:none;font-size:11.5px;color:var(--red);margin-top:4px;font-weight:500;}
+  .field.invalid .err{display:block;}
   .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
   .qty-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .inline-warn{background:var(--yellow-tint);border:1px solid #EBD09A;color:#8A5C05;border-radius:8px;padding:9px 12px;font-size:12.5px;margin-bottom:12px;display:none;}
+  .inline-warn.show{display:block;}
 
-  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:40px;}
+  /* ---------- Toasts ---------- */
+  .toast-stack{position:fixed;right:20px;bottom:20px;z-index:200;display:flex;flex-direction:column;gap:10px;max-width:calc(100vw - 40px);}
+  .toast{
+    background:var(--steel-dark);color:#fff;border-radius:10px;padding:12px 16px;font-size:13px;
+    box-shadow:0 12px 32px rgba(0,0,0,.28);display:flex;align-items:center;gap:14px;
+    animation:toastIn .18s ease-out;
+  }
+  .toast.err{background:var(--red);}
+  .toast.ok{background:#1F7A33;}
+  .toast button{
+    background:rgba(255,255,255,.16);border:none;color:#fff;font-family:'Inter',sans-serif;
+    font-weight:600;font-size:12.5px;padding:5px 11px;border-radius:6px;cursor:pointer;flex:0 0 auto;
+  }
+  .toast button:hover{background:rgba(255,255,255,.28);}
+  @keyframes toastIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  @media(prefers-reduced-motion:reduce){.toast{animation:none;}*{transition:none !important;}}
 
-  @media(max-width:640px){
+  /* ---------- Skeleton ---------- */
+  .skeleton{background:linear-gradient(90deg,#E4E9ED 25%,#EFF3F6 50%,#E4E9ED 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;border-radius:6px;}
+  @keyframes shimmer{from{background-position:200% 0;}to{background-position:-200% 0;}}
+  .sk-card{height:118px;border-radius:var(--radius);}
+
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:40px;line-height:1.6;}
+
+  /* ---------- Mobile: tables become cards ---------- */
+  @media(max-width:860px){
+    .topbar{padding:18px 18px 22px;}
     .topbar-inner{flex-direction:column;align-items:flex-start;}
+    .topbar-side{align-items:flex-start;flex-direction:row;}
+    .wrap{padding:0 16px;}
     .controls{flex-direction:column;align-items:stretch;}
-    .controls-left{flex-direction:column;align-items:stretch;}
-    table{font-size:12px;}
+    .controls-left,.controls-right{flex-direction:column;align-items:stretch;}
+    .search-box{min-width:0;}
+    .table-scroll{max-height:none;overflow:visible;}
+    table,tbody,tr,td{display:block;width:100%;}
+    thead{display:none;}
+    tbody tr{border-bottom:8px solid var(--bg);padding:12px 14px;}
+    tbody tr:last-child{border-bottom:none;}
+    tbody td{border:none;padding:5px 0;display:flex;justify-content:space-between;align-items:center;gap:14px;background:none !important;}
+    tbody td::before{
+      content:attr(data-label);color:var(--muted);font-size:10.5px;text-transform:uppercase;
+      letter-spacing:.06em;font-weight:700;flex:0 0 auto;
+    }
+    tbody td[data-label="№"]{display:none;}
+    tbody td[data-label="Действия"]{display:block;padding-top:10px;}
+    tbody td[data-label="Действия"]::before{display:none;}
+    .row-actions{min-width:0;}
+    .row-actions .btn{flex:1 1 auto;text-align:center;}
+    tbody tr.row-red{background:var(--red-tint);}
+    tbody tr.row-orange{background:var(--orange-tint);}
+    .empty-row td{display:block;}
+    .empty-row td::before{display:none;}
+    .journal-item{flex-direction:column;gap:3px;}
+    .journal-time{flex:0 0 auto;}
+    .toast-stack{right:12px;left:12px;bottom:12px;}
+  }
+
+  /* ---------- Print ---------- */
+  @media print{
+    body{background:#fff;padding:0;}
+    .topbar{background:none;color:#000;border-bottom:2px solid #000;}
+    .topbar .eyebrow,.topbar .sub{color:#444;}
+    .actor-chip,.tabs,.controls,.row-actions,.yard-head .btn,.toast-stack,.conn{display:none !important;}
+    .tab-panel{display:block !important;page-break-before:always;}
+    .table-scroll{max-height:none;overflow:visible;box-shadow:none;}
+    thead th{position:static;}
   }
 </style>
 </head>
@@ -202,24 +330,32 @@
       <h1>Учёт контейнеров</h1>
       <div class="sub">Склад, активные объекты, история и клиенты — в реальном времени</div>
     </div>
-    <div class="topbar-stamp" id="todayStamp"></div>
+    <div class="topbar-side">
+      <button class="actor-chip unset" id="actorChip" type="button">
+        <span class="actor-dot"></span><span id="actorLabel">Кто работает?</span>
+      </button>
+      <div class="topbar-stamp" id="todayStamp"></div>
+    </div>
   </div>
 </div>
 
 <div class="wrap">
 
+  <div class="conn" id="connBar"><span id="connText"></span></div>
+
   <div class="yard">
     <div class="yard-head">
       <h2>Склад — наличие по объёмам</h2>
-      <button class="btn btn-amber" onclick="openStockModal()">Ввести количество</button>
+      <button class="btn btn-amber" data-act="stock">Ввести количество</button>
     </div>
     <div class="yard-grid" id="yardGrid"></div>
   </div>
 
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="active8" onclick="switchTab('active8')">Активные 8 м³</button>
-    <button class="tab-btn" data-tab="activeOther" onclick="switchTab('activeOther')">Активные 20 м³+</button>
-    <button class="tab-btn" data-tab="history" onclick="switchTab('history')">История</button>
+  <div class="tabs" id="tabs">
+    <button class="tab-btn active" data-tab="active8">Активные 8 м³<span class="count" id="cnt-active8">—</span></button>
+    <button class="tab-btn" data-tab="activeOther">Активные 20 м³+<span class="count" id="cnt-activeOther">—</span></button>
+    <button class="tab-btn" data-tab="history">История<span class="count" id="cnt-history">—</span></button>
+    <button class="tab-btn" data-tab="journal">Журнал</button>
   </div>
 
   <!-- ACTIVE TAB — 8 M3 -->
@@ -227,32 +363,33 @@
     <div class="summary-bar" id="summaryBar8"></div>
     <div class="controls">
       <div class="controls-left">
-        <input type="search" id="searchInput8" class="search-box" placeholder="Поиск по клиенту или адресу…" oninput="renderActiveTable8()">
-        <select id="statusFilter8" onchange="renderActiveTable8()">
+        <input type="search" id="searchInput8" class="search-box" placeholder="Поиск по клиенту, адресу или номеру…">
+        <select id="statusFilter8">
           <option value="Все">Статус: все</option>
           <option value="В работе">В работе</option>
           <option value="В простое">В простое</option>
           <option value="В ремонте">В ремонте</option>
         </select>
-        <select id="typeFilter8" onchange="renderActiveTable8()">
+        <select id="typeFilter8">
           <option value="Все">Операция: все</option>
           <option value="Постановка">Постановка</option>
           <option value="Замена">Замена</option>
-          <option value="Снятие">Снятие</option>
         </select>
+        <select id="flagFilter8">
+          <option value="Все">Показать: все</option>
+          <option value="Внимание">Только требующие внимания</option>
+        </select>
+        <button class="filter-reset" data-act="reset-filters" data-view="active8">Сбросить</button>
       </div>
-      <button class="btn btn-primary" onclick="openAddModal()">+ Добавить контейнер</button>
+      <div class="controls-right">
+        <button class="btn btn-ghost" data-act="export" data-view="active8">Выгрузить в Excel</button>
+        <button class="btn btn-primary" data-act="add" data-volume="8">+ Добавить контейнер</button>
+      </div>
     </div>
-
     <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>№</th><th>Объём</th><th>Клиент</th><th>Адрес</th><th>Статус</th>
-            <th>Операция</th><th>Установлен</th><th>Дней без движ.</th><th>Напоминание</th><th>Действия</th>
-          </tr>
-        </thead>
-        <tbody id="activeTableBody8"></tbody>
+      <table class="data-table">
+        <thead><tr id="head-active8"></tr></thead>
+        <tbody id="body-active8"></tbody>
       </table>
     </div>
   </div>
@@ -262,63 +399,86 @@
     <div class="summary-bar" id="summaryBarOther"></div>
     <div class="controls">
       <div class="controls-left">
-        <input type="search" id="searchInputOther" class="search-box" placeholder="Поиск по клиенту или адресу…" oninput="renderActiveTableOther()">
-        <select id="statusFilterOther" onchange="renderActiveTableOther()">
+        <input type="search" id="searchInputOther" class="search-box" placeholder="Поиск по клиенту, адресу или номеру…">
+        <select id="statusFilterOther">
           <option value="Все">Статус: все</option>
           <option value="В работе">В работе</option>
           <option value="В простое">В простое</option>
           <option value="В ремонте">В ремонте</option>
         </select>
-        <select id="typeFilterOther" onchange="renderActiveTableOther()">
+        <select id="typeFilterOther">
           <option value="Все">Операция: все</option>
           <option value="Постановка">Постановка</option>
           <option value="Замена">Замена</option>
-          <option value="Снятие">Снятие</option>
         </select>
+        <select id="flagFilterOther">
+          <option value="Все">Показать: все</option>
+          <option value="Внимание">Только требующие внимания</option>
+        </select>
+        <button class="filter-reset" data-act="reset-filters" data-view="activeOther">Сбросить</button>
       </div>
-      <button class="btn btn-primary" onclick="openAddModal()">+ Добавить контейнер</button>
+      <div class="controls-right">
+        <button class="btn btn-ghost" data-act="export" data-view="activeOther">Выгрузить в Excel</button>
+        <button class="btn btn-primary" data-act="add" data-volume="20">+ Добавить контейнер</button>
+      </div>
     </div>
-
     <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>№</th><th>Объём</th><th>Клиент</th><th>Адрес</th><th>Статус</th>
-            <th>Операция</th><th>Установлен</th><th>Дней без движ.</th><th>Напоминание</th><th>Действия</th>
-          </tr>
-        </thead>
-        <tbody id="activeTableBodyOther"></tbody>
+      <table class="data-table">
+        <thead><tr id="head-activeOther"></tr></thead>
+        <tbody id="body-activeOther"></tbody>
       </table>
     </div>
   </div>
 
   <!-- HISTORY TAB -->
   <div class="tab-panel" id="panel-history">
-    <h3 class="section-title">Контейнеры 8 м³</h3>
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>№</th><th>Объём</th><th>Номер</th><th>Клиент</th><th>Адрес</th>
-            <th>Установлен</th><th>Снят</th><th>Операция</th>
-          </tr>
-        </thead>
-        <tbody id="historyTableBody8"></tbody>
-      </table>
+    <div class="controls">
+      <div class="controls-left">
+        <input type="search" id="searchInputHist" class="search-box" placeholder="Поиск по клиенту, адресу или номеру…">
+        <select id="volFilterHist"><option value="Все">Объём: все</option></select>
+        <label style="font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;">
+          Снят с <input type="date" id="histFrom">
+        </label>
+        <label style="font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;">
+          по <input type="date" id="histTo">
+        </label>
+        <button class="filter-reset" data-act="reset-filters" data-view="history">Сбросить</button>
+      </div>
+      <div class="controls-right">
+        <button class="btn btn-ghost" data-act="export" data-view="history">Выгрузить в Excel</button>
+      </div>
     </div>
 
-    <h3 class="section-title">Контейнеры 20 м³+</h3>
+    <h3 class="section-title">Контейнеры 8 м³ <span class="count" id="histCount8"></span></h3>
     <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>№</th><th>Объём</th><th>Номер</th><th>Клиент</th><th>Адрес</th>
-            <th>Установлен</th><th>Снят</th><th>Операция</th>
-          </tr>
-        </thead>
-        <tbody id="historyTableBodyOther"></tbody>
+      <table class="data-table">
+        <thead><tr id="head-hist8"></tr></thead>
+        <tbody id="body-hist8"></tbody>
       </table>
     </div>
+    <button class="btn btn-ghost load-more" id="more-hist8" style="display:none;">Показать ещё</button>
+
+    <h3 class="section-title">Контейнеры 20 м³+ <span class="count" id="histCountOther"></span></h3>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr id="head-histOther"></tr></thead>
+        <tbody id="body-histOther"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-ghost load-more" id="more-histOther" style="display:none;">Показать ещё</button>
+  </div>
+
+  <!-- JOURNAL TAB -->
+  <div class="tab-panel" id="panel-journal">
+    <div class="controls">
+      <div class="controls-left">
+        <span style="font-size:12.5px;color:var(--muted);">Последние действия сотрудников — кто, что и когда изменил.</span>
+      </div>
+      <div class="controls-right">
+        <button class="btn btn-ghost" data-act="reload-journal">Обновить</button>
+      </div>
+    </div>
+    <div class="journal-list" id="journalList"><div class="journal-empty">Загрузка…</div></div>
   </div>
 
   <footer id="statusFooter">Подключение к базе данных…</footer>
@@ -326,27 +486,40 @@
 
 <!-- Add/Edit modal -->
 <div class="modal-backdrop" id="containerModalBackdrop">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="containerModalTitle">
     <h3 id="containerModalTitle">Добавить контейнер</h3>
+    <div class="inline-warn" id="addWarn"></div>
     <input type="hidden" id="editId">
     <div class="field">
-      <label>Объём</label>
+      <label for="f-volume">Объём</label>
       <select id="f-volume"></select>
+      <div class="field-note" id="volumeNote"></div>
     </div>
-    <div class="field">
-      <label>Клиент</label>
-      <input type="text" id="f-client" placeholder="Название клиента">
+    <div class="field" id="fld-client">
+      <label for="f-client">Клиент</label>
+      <input type="text" id="f-client" placeholder="Название клиента" list="clientList" autocomplete="off">
+      <datalist id="clientList"></datalist>
+      <div class="err">Укажите клиента</div>
     </div>
-    <div class="field">
-      <label>Адрес</label>
-      <input type="text" id="f-address" placeholder="Адрес объекта">
+    <div class="field" id="fld-address">
+      <label for="f-address">Адрес</label>
+      <input type="text" id="f-address" placeholder="Адрес объекта" list="addressList" autocomplete="off">
+      <datalist id="addressList"></datalist>
+      <div class="err">Укажите адрес</div>
     </div>
-    <div class="field">
-      <label>Дата постановки</label>
+    <div class="field" id="fld-date">
+      <label for="f-installDate">Дата постановки</label>
       <input type="date" id="f-installDate">
+      <div class="field-note">Дата, когда контейнер фактически поставили — не обязательно сегодня.</div>
+      <div class="err">Укажите дату</div>
+    </div>
+    <div class="field" id="fld-removalDate" style="display:none;">
+      <label for="f-removalDate">Дата снятия</label>
+      <input type="date" id="f-removalDate">
+      <div class="err">Укажите дату снятия</div>
     </div>
     <div class="field">
-      <label>Статус</label>
+      <label for="f-status">Статус</label>
       <select id="f-status">
         <option>В работе</option>
         <option>В простое</option>
@@ -354,7 +527,7 @@
       </select>
     </div>
     <div class="field">
-      <label>Тип операции</label>
+      <label for="f-type">Тип операции</label>
       <select id="f-type">
         <option>Постановка</option>
         <option>Замена</option>
@@ -362,45 +535,111 @@
       </select>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('containerModalBackdrop')">Отмена</button>
-      <button class="btn btn-primary" onclick="saveContainer()">Сохранить</button>
+      <button class="btn btn-ghost" data-act="close" data-modal="containerModalBackdrop">Отмена</button>
+      <button class="btn btn-primary" id="saveContainerBtn" data-act="save-container">Сохранить</button>
     </div>
   </div>
 </div>
 
 <!-- Stock quantity modal -->
 <div class="modal-backdrop" id="stockModalBackdrop">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true">
     <h3>Ввести количество на складе</h3>
+    <p class="hint">Это общее количество купленных контейнеров каждого объёма. «На складе» считается автоматически: общее минус те, что стоят у клиентов и в ремонте.</p>
     <div class="qty-grid" id="stockQtyGrid"></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('stockModalBackdrop')">Отмена</button>
-      <button class="btn btn-primary" onclick="saveStock()">Сохранить</button>
+      <button class="btn btn-ghost" data-act="close" data-modal="stockModalBackdrop">Отмена</button>
+      <button class="btn btn-primary" data-act="save-stock">Сохранить</button>
     </div>
   </div>
 </div>
 
 <!-- Replace modal -->
 <div class="modal-backdrop" id="replaceModalBackdrop">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true">
     <h3>Заменить контейнер</h3>
-    <p style="font-size:13px;color:var(--muted);margin-top:-8px;" id="replaceInfo"></p>
+    <p class="hint" id="replaceInfo"></p>
     <div class="field">
-      <label>Новый объём (можно выбрать другой, из наличия на складе)</label>
+      <label for="f-replace-volume">Новый объём (можно выбрать другой, из наличия на складе)</label>
       <select id="f-replace-volume"></select>
     </div>
+    <div class="field" id="fld-replace-date">
+      <label for="f-replace-date">Дата замены</label>
+      <input type="date" id="f-replace-date">
+      <div class="field-note">День, когда контейнер фактически меняли. С этой даты пойдёт отсчёт «дней без движения».</div>
+      <div class="err">Укажите дату замены</div>
+    </div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('replaceModalBackdrop')">Отмена</button>
-      <button class="btn btn-amber" onclick="confirmReplace()">Подтвердить замену</button>
+      <button class="btn btn-ghost" data-act="close" data-modal="replaceModalBackdrop">Отмена</button>
+      <button class="btn btn-amber" data-act="confirm-replace">Подтвердить замену</button>
     </div>
   </div>
 </div>
 
+<!-- Remove modal -->
+<div class="modal-backdrop" id="removeModalBackdrop">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>Снять контейнер</h3>
+    <p class="hint" id="removeInfo"></p>
+    <div class="field" id="fld-remove-date">
+      <label for="f-remove-date">Дата снятия</label>
+      <input type="date" id="f-remove-date">
+      <div class="field-note">День, когда контейнер фактически сняли с объекта.</div>
+      <div class="err">Укажите дату снятия</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-act="close" data-modal="removeModalBackdrop">Отмена</button>
+      <button class="btn btn-steel" data-act="confirm-remove">Снять и вернуть на склад</button>
+    </div>
+  </div>
+</div>
+
+<!-- Actor modal -->
+<div class="modal-backdrop" id="actorModalBackdrop">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>Кто работает</h3>
+    <p class="hint">Имя сохраняется только на этом устройстве и подписывает записи в журнале, чтобы было видно, кто что изменил.</p>
+    <div class="field">
+      <label for="f-actor">Имя</label>
+      <input type="text" id="f-actor" placeholder="Например: Георгий" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-act="close" data-modal="actorModalBackdrop">Отмена</button>
+      <button class="btn btn-primary" data-act="save-actor">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generic confirm modal -->
+<div class="modal-backdrop" id="confirmBackdrop">
+  <div class="modal" style="max-width:400px;" role="dialog" aria-modal="true">
+    <h3 id="confirmTitle">Подтвердите действие</h3>
+    <p class="hint" id="confirmText" style="margin-bottom:6px;"></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-act="confirm-no">Отмена</button>
+      <button class="btn btn-primary" id="confirmOk" data-act="confirm-yes">Подтвердить</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
-/* ============ CONFIG & STATE ============ */
+/* ============================================================
+   УЧЁТ КОНТЕЙНЕРОВ — Транс Инвест
+   Схема данных в Firestore не менялась:
+     containers/{uuid} = {number, volume, client, address, status, type, installDate, removalDate, prevType}
+     stock/{volume}    = {qty}
+     meta/counter      = {value}
+     journal/{auto}    = {ts, actor, action, text}   ← новая, необязательная
+   ============================================================ */
+
 const VOLUMES = [8,16,20,25,27,36,38];
+const SMALL = [8];
+const BIG = VOLUMES.filter(v=>v!==8);
+const HIST_PAGE = 50;
 
 const firebaseConfig = {
   apiKey: "AIzaSyAW_2QPm7pt-0LJ6VvfKjInkrd7PZt-bBA",
@@ -413,487 +652,1089 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+/* Офлайн-кэш: приложение открывается и работает без сети,
+   записи уходят в базу, как только связь вернётся. */
+db.enablePersistence({ synchronizeTabs:true }).catch(()=>{ /* несколько вкладок или старый браузер — не критично */ });
+
 let containers = [];
 let stock = {};
 VOLUMES.forEach(v=>stock[v]=0);
-let numCounter = 0;
 let replaceTargetId = null;
+let removeTargetId = null;
+let lastDeleted = null;
+let currentTab = 'active8';
+let dayStamp = '';
 
-let _containersReady = false, _stockReady = false, _counterReady = false;
+let ready = { containers:false, stock:false };
+let fromCache = false;
 
+/* ============ ЖУРНАЛ: кто работает ============ */
+function getActor(){ return localStorage.getItem('ti_actor') || ''; }
+function setActor(name){
+  localStorage.setItem('ti_actor', name);
+  renderActorChip();
+}
+function renderActorChip(){
+  const name = getActor();
+  const chip = document.getElementById('actorChip');
+  document.getElementById('actorLabel').textContent = name || 'Кто работает?';
+  chip.classList.toggle('unset', !name);
+}
+function logEvent(action, text){
+  try{
+    db.collection('journal').add({
+      ts: firebase.firestore.FieldValue.serverTimestamp(),
+      actor: getActor() || 'не указан',
+      action, text
+    }).catch(()=>{});
+  }catch(e){ /* журнал не должен ломать основную работу */ }
+}
+
+/* ============ ТОСТЫ ============ */
+function toast(text, opts){
+  opts = opts || {};
+  const el = document.createElement('div');
+  el.className = 'toast' + (opts.type ? ' '+opts.type : '');
+  const span = document.createElement('span');
+  span.textContent = text;
+  el.appendChild(span);
+  if(opts.actionLabel && opts.onAction){
+    const b = document.createElement('button');
+    b.textContent = opts.actionLabel;
+    b.addEventListener('click', ()=>{ opts.onAction(); remove(); });
+    el.appendChild(b);
+  }
+  document.getElementById('toastStack').appendChild(el);
+  let t = setTimeout(remove, opts.ms || (opts.actionLabel ? 9000 : 4000));
+  function remove(){ clearTimeout(t); el.remove(); }
+  return remove;
+}
+
+/* ============ ПОДТВЕРЖДЕНИЕ ============ */
+let _confirmResolve = null;
+function askConfirm(title, text, okLabel, danger){
+  return new Promise(resolve=>{
+    _confirmResolve = resolve;
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmText').textContent = text;
+    const ok = document.getElementById('confirmOk');
+    ok.textContent = okLabel || 'Подтвердить';
+    ok.className = 'btn ' + (danger ? 'btn-danger-solid' : 'btn-primary');
+    openModal('confirmBackdrop');
+    ok.focus();
+  });
+}
+function settleConfirm(val){
+  closeModal('confirmBackdrop');
+  if(_confirmResolve){ _confirmResolve(val); _confirmResolve = null; }
+}
+
+/* ============ СВЯЗЬ ============ */
 function setFooterStatus(text, isError){
   const el = document.getElementById('statusFooter');
-  if(!el) return;
   el.textContent = text;
   el.style.color = isError ? 'var(--red)' : '';
 }
-
-function _maybeRenderOnceReady(){
-  if(_containersReady && _stockReady && _counterReady){
-    setFooterStatus('Общая база данных · изменения видны всем сотрудникам в реальном времени');
-    renderAll();
+function setConn(state, text){
+  const bar = document.getElementById('connBar');
+  bar.className = 'conn' + (state ? ' show '+state : '');
+  document.getElementById('connText').textContent = text || '';
+}
+function refreshConn(){
+  if(!navigator.onLine){
+    setConn('offline','Нет сети. Работаете с сохранённой копией — изменения отправятся в базу автоматически, когда связь появится.');
+  } else if(fromCache){
+    setConn('offline','Данные из кэша, идёт подключение к базе…');
+  } else {
+    setConn('', '');
   }
 }
+window.addEventListener('online', refreshConn);
+window.addEventListener('offline', refreshConn);
 
-/* ---- Write helpers (writes only — reads come from live listeners below) ---- */
+/* ============ ЗАПИСЬ В БАЗУ ============ */
 async function upsertContainerRow(c){
   try{
     const { id, ...fields } = c;
     await db.collection('containers').doc(id).set(fields);
-  } catch(e){ alert('Ошибка сохранения контейнера: '+e.message); console.error(e); }
+    return true;
+  } catch(e){
+    toast('Не удалось сохранить: '+e.message, {type:'err', ms:7000});
+    console.error(e);
+    return false;
+  }
 }
 async function deleteContainerRow(id){
   try{
     await db.collection('containers').doc(id).delete();
-  } catch(e){ alert('Ошибка удаления: '+e.message); console.error(e); }
+    return true;
+  } catch(e){
+    toast('Не удалось удалить: '+e.message, {type:'err', ms:7000});
+    console.error(e);
+    return false;
+  }
 }
 async function syncStock(){
   try{
     await Promise.all(VOLUMES.map(v=>db.collection('stock').doc(String(v)).set({ qty: stock[v]||0 })));
-  } catch(e){ alert('Ошибка сохранения склада: '+e.message); console.error(e); }
+    return true;
+  } catch(e){
+    toast('Не удалось сохранить склад: '+e.message, {type:'err', ms:7000});
+    console.error(e);
+    return false;
+  }
 }
-async function syncCounter(){
+/* Номер выдаётся транзакцией: два человека одновременно не получат одинаковый К-XXXX. */
+async function allocateNumber(){
+  const ref = db.collection('meta').doc('counter');
   try{
-    await db.collection('meta').doc('counter').set({ value: numCounter });
-  } catch(e){ console.error(e); }
+    const value = await db.runTransaction(async tx=>{
+      const doc = await tx.get(ref);
+      const next = ((doc.exists ? doc.data().value : 0) || 0) + 1;
+      tx.set(ref, { value: next }, { merge:true });
+      return next;
+    });
+    return 'К-' + String(value).padStart(4,'0');
+  } catch(e){
+    console.error(e);
+    // запасной вариант (например, офлайн): берём максимум из уже существующих
+    const max = containers.reduce((m,c)=>{
+      const n = parseInt(String(c.number||'').replace(/\D/g,''),10);
+      return isNaN(n) ? m : Math.max(m,n);
+    },0);
+    return 'К-' + String(max+1).padStart(4,'0');
+  }
 }
 
-/* ---- Live listeners: local state is ALWAYS driven directly by Firestore.
-   This avoids any race between our own writes and manual reloads — the
-   moment any document changes (by us or by a colleague), the relevant
-   snapshot fires and the UI re-renders from the fresh data. ---- */
-db.collection('containers').onSnapshot(snap=>{
-  containers = snap.docs.map(d=>({ id: d.id, ...d.data() }));
-  _containersReady = true;
-  _maybeRenderOnceReady();
-}, err=>{ setFooterStatus('Ошибка подключения к базе данных. Проверьте интернет и настройки Firebase.', true); console.error(err); });
+/* ============ ЖИВЫЕ ПОДПИСКИ ============ */
+db.collection('containers').onSnapshot({ includeMetadataChanges:true }, snap=>{
+  containers = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+  fromCache = snap.metadata.fromCache;
+  ready.containers = true;
+  refreshConn();
+  maybeRender();
+}, err=>{
+  setFooterStatus('Ошибка подключения к базе данных. Проверьте интернет и настройки Firebase.', true);
+  setConn('error','Нет доступа к базе данных: '+err.message);
+  console.error(err);
+});
 
 db.collection('stock').onSnapshot(snap=>{
   const s = {}; VOLUMES.forEach(v=>s[v]=0);
   snap.docs.forEach(d=>{ s[parseInt(d.id,10)] = d.data().qty || 0; });
   stock = s;
-  _stockReady = true;
-  _maybeRenderOnceReady();
-}, err=>{ setFooterStatus('Ошибка подключения к базе данных. Проверьте интернет и настройки Firebase.', true); console.error(err); });
+  ready.stock = true;
+  maybeRender();
+}, err=>{
+  setFooterStatus('Ошибка подключения к базе данных. Проверьте интернет и настройки Firebase.', true);
+  console.error(err);
+});
 
-db.collection('meta').doc('counter').onSnapshot(doc=>{
-  numCounter = doc.exists ? (doc.data().value || 0) : 0;
-  _counterReady = true;
-  _maybeRenderOnceReady();
-}, err=>console.error(err));
+function maybeRender(){
+  if(ready.containers && ready.stock){
+    setFooterStatus('Общая база данных · изменения видны всем сотрудникам в реальном времени');
+    renderAll();
+  }
+}
 
-
-/* ============ HELPERS ============ */
+/* ============ ХЕЛПЕРЫ ============ */
 function todayISO(){
   const d = new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function formatDate(iso){
   if(!iso) return '—';
-  const [y,m,d] = iso.split('-');
-  return `${d}.${m}.${y}`;
+  const p = String(iso).split('-');
+  return p.length===3 ? `${p[2]}.${p[1]}.${p[0]}` : '—';
 }
 function daysSince(iso){
   if(!iso) return 0;
   const start = new Date(iso+'T00:00:00');
+  if(isNaN(start)) return 0;
   const now = new Date();
-  const todayMid = new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.floor((todayMid - start) / 86400000);
 }
-function nextNumber(){
-  numCounter += 1;
-  return 'К-' + String(numCounter).padStart(4,'0');
-}
-function freeForVolume(v){
-  const active = containers.filter(c=>!isHistory(c) && c.volume===v);
-  const working = active.filter(c=>c.status==='В работе').length;
-  const repair = active.filter(c=>c.status==='В ремонте').length;
-  return Math.max(0, (stock[v]||0) - working - repair);
+function plural(n, one, few, many){
+  const a = Math.abs(n) % 100, b = a % 10;
+  if(a > 10 && a < 20) return many;
+  if(b > 1 && b < 5) return few;
+  if(b === 1) return one;
+  return many;
 }
 function isHistory(c){ return c.type === 'Снятие'; }
-
 function badgeClass(status){
   if(status==='В работе') return 'badge-working';
-  if(status==='В простое') return 'badge-idle';
   if(status==='В ремонте') return 'badge-repair';
   return 'badge-idle';
 }
+function escapeHtml(str){
+  if(str==null) return '';
+  return String(str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+function debounce(fn, ms){
+  let t; return function(){ clearTimeout(t); t = setTimeout(()=>fn.apply(this, arguments), ms); };
+}
 
-// Returns {red, orange, reminderText}
+/* Занято = стоит у клиента в работе + в ремонте. Свободно = куплено минус занято. */
+function occupiedForVolume(v){
+  const active = containers.filter(c=>!isHistory(c) && c.volume===v);
+  return {
+    working: active.filter(c=>c.status==='В работе').length,
+    repair:  active.filter(c=>c.status==='В ремонте').length,
+    idle:    active.filter(c=>c.status==='В простое').length,
+  };
+}
+function rawFreeForVolume(v){
+  const o = occupiedForVolume(v);
+  return (stock[v]||0) - o.working - o.repair;
+}
+function freeForVolume(v){ return Math.max(0, rawFreeForVolume(v)); }
+
+/* Подсветка и напоминания — правила не менялись */
 function highlightFor(c){
   const d = daysSince(c.installDate);
   let red=false, orange=false, reminderText='';
-  // 5.1
   if(c.status==='В работе' && c.type==='Постановка' && d>3) red=true;
-  // 5.2
   if((c.status==='В работе' || c.status==='В простое') && c.type==='Замена' && d>7) red=true;
-  // 5.3
   if(c.type==='Замена' && d>7){
     reminderText = 'Требуется замена!';
     if(!red) orange=true;
   }
-  return {red, orange, reminderText, days:d};
+  return { red, orange, reminderText, days:d };
 }
 
-/* ============ RENDER: YARD / STOCK ============ */
-function countsForVolume(vol){
-  const active = containers.filter(c=>!isHistory(c) && c.volume===vol);
-  return {
-    working: active.filter(c=>c.status==='В работе').length,
-    repair: active.filter(c=>c.status==='В ремонте').length,
-  };
-}
+/* ============ СКЛАД ============ */
 function renderYard(){
   const grid = document.getElementById('yardGrid');
   grid.innerHTML = VOLUMES.map(v=>{
     const qty = stock[v]||0;
-    const counts = countsForVolume(v);
-    const free = Math.max(0, qty - counts.working - counts.repair);
-    const shown = Math.min(qty,10);
+    const o = occupiedForVolume(v);
+    const rawFree = rawFreeForVolume(v);
+    const free = Math.max(0, rawFree);
+    const shownTotal = Math.min(qty,10);
+    const shownFree = Math.min(free, shownTotal);
     let crates = '';
-    for(let i=0;i<shown;i++) crates += '<div class="crate"></div>';
-    let overflow = qty>10 ? `<span class="crate-overflow">+${qty-10}</span>` : '';
+    for(let i=0;i<shownTotal;i++) crates += `<div class="crate${i<shownFree?' free':''}"></div>`;
     if(qty===0) crates = '<div class="crate empty-slot"></div>';
+    const overflow = qty>10 ? `<span class="crate-overflow">+${qty-10}</span>` : '';
     return `
-      <div class="yard-card">
+      <div class="yard-card${rawFree<0?' alert':''}">
         <div class="vol">${v} м³</div>
         <div class="stock-num">${qty}</div>
-        <div class="container-stack">${crates}${overflow}</div>
+        <div class="container-stack" title="Серые — свободны, оранжевые — заняты">${crates}${overflow}</div>
         <div class="mini-stats">
-          <span>В работе — <b>${counts.working}</b></span>
+          <span>В работе — <b>${o.working}</b></span>
           <span>На складе — <b>${free}</b></span>
-          <span>В ремонте — <b>${counts.repair}</b></span>
+          <span>В ремонте — <b>${o.repair}</b></span>
         </div>
+        ${rawFree<0 ? `<div class="overuse">Перерасход на ${Math.abs(rawFree)} — проверьте общее количество</div>` : ''}
       </div>`;
   }).join('');
 }
 
-/* ============ RENDER: SUMMARY BARS ============ */
-function summaryForVolumes(volumeList){
+/* ============ ИТОГОВЫЕ ПЛАШКИ ============ */
+function renderSummaryBar(elId, volumeList){
   const active = containers.filter(c=>!isHistory(c) && volumeList.includes(c.volume));
   const working = active.filter(c=>c.status==='В работе').length;
-  const repair = active.filter(c=>c.status==='В ремонте').length;
-  const total = volumeList.reduce((sum,v)=> sum + (stock[v]||0), 0);
-  const free = Math.max(0, total - working - repair);
-  return { working, repair, free, total };
-}
+  const repair  = active.filter(c=>c.status==='В ремонте').length;
+  const idle    = active.filter(c=>c.status==='В простое').length;
+  const total   = volumeList.reduce((s,v)=> s + (stock[v]||0), 0);
+  const rawFree = total - working - repair;
+  const attention = active.filter(c=>{ const h = highlightFor(c); return h.red || h.orange; }).length;
 
-function renderSummaryBar(elId, volumeList){
-  const s = summaryForVolumes(volumeList);
   document.getElementById(elId).innerHTML = `
-    <div class="summary-chip">В работе <b>${s.working}</b></div>
-    <div class="summary-chip">На складе <b>${s.free}</b></div>
-    <div class="summary-chip">В ремонте <b>${s.repair}</b></div>
-    <div class="summary-chip total">Всего контейнеров <b>${s.total}</b></div>
+    <div class="summary-chip">В работе <b>${working}</b></div>
+    <div class="summary-chip">На складе <b>${Math.max(0,rawFree)}</b></div>
+    <div class="summary-chip">В простое <b>${idle}</b></div>
+    <div class="summary-chip">В ремонте <b>${repair}</b></div>
+    <div class="summary-chip total">Всего контейнеров <b>${total}</b></div>
+    ${attention ? `<div class="summary-chip warn">Требуют внимания <b>${attention}</b></div>` : ''}
+    ${rawFree<0 ? `<div class="summary-chip warn">Перерасход <b>${Math.abs(rawFree)}</b></div>` : ''}
   `;
 }
 
-/* ============ RENDER: ACTIVE TABLES (split by volume, independent filters) ============ */
-function renderActiveTable8(){
-  renderSummaryBar('summaryBar8', [8]);
+/* ============ КОЛОНКИ И СОРТИРОВКА ============ */
+const ACTIVE_COLS = [
+  { key:'idx',        label:'№',            sort:null },
+  { key:'number',     label:'Номер',        sort:'number' },
+  { key:'volume',     label:'Объём',        sort:'volume' },
+  { key:'client',     label:'Клиент',       sort:'client' },
+  { key:'address',    label:'Адрес',        sort:'address' },
+  { key:'status',     label:'Статус',       sort:'status' },
+  { key:'type',       label:'Операция',     sort:'type' },
+  { key:'installDate',label:'Установлен',   sort:'installDate' },
+  { key:'days',       label:'Дней',         sort:'days' },
+  { key:'reminder',   label:'Напоминание',  sort:null },
+  { key:'actions',    label:'Действия',     sort:null },
+];
+const HIST_COLS = [
+  { key:'idx',        label:'№',          sort:null },
+  { key:'number',     label:'Номер',      sort:'number' },
+  { key:'volume',     label:'Объём',      sort:'volume' },
+  { key:'client',     label:'Клиент',     sort:'client' },
+  { key:'address',    label:'Адрес',      sort:'address' },
+  { key:'installDate',label:'Установлен', sort:'installDate' },
+  { key:'removalDate',label:'Снят',       sort:'removalDate' },
+  { key:'type',       label:'Операция',   sort:null },
+  { key:'restore',    label:'Действия',   sort:null },
+];
 
-  const search = (document.getElementById('searchInput8').value||'').toLowerCase().trim();
-  const statusF = document.getElementById('statusFilter8').value;
-  const typeF = document.getElementById('typeFilter8').value;
+const sortState = {
+  'active8':    { key:'installDate', dir:-1 },
+  'activeOther':{ key:'installDate', dir:-1 },
+  'hist8':      { key:'removalDate', dir:-1 },
+  'histOther':  { key:'removalDate', dir:-1 },
+};
+const histShown = { hist8: HIST_PAGE, histOther: HIST_PAGE };
 
-  let rows = containers.filter(c=>!isHistory(c) && c.volume===8);
-  if(search){
-    rows = rows.filter(c => (c.client||'').toLowerCase().includes(search) || (c.address||'').toLowerCase().includes(search));
-  }
-  if(statusF !== 'Все') rows = rows.filter(c=>c.status===statusF);
-  if(typeF !== 'Все') rows = rows.filter(c=>c.type===typeF);
-  rows = rows.slice().sort((a,b)=> (b.installDate||'').localeCompare(a.installDate||''));
-
-  renderActiveTableInto('activeTableBody8', rows);
+function buildHead(headId, cols, sortKey){
+  const tr = document.getElementById(headId);
+  const st = sortState[sortKey];
+  tr.innerHTML = cols.map(col=>{
+    if(!col.sort) return `<th>${col.label}</th>`;
+    const active = st.key === col.sort;
+    const arrow = active ? (st.dir===1 ? '▲' : '▼') : '↕';
+    return `<th class="sortable${active?' sorted':''}" data-sort="${col.sort}" data-table="${sortKey}">${col.label}<span class="arrow">${arrow}</span></th>`;
+  }).join('');
 }
 
-function renderActiveTableOther(){
-  renderSummaryBar('summaryBarOther', VOLUMES.filter(v=>v!==8));
-
-  const search = (document.getElementById('searchInputOther').value||'').toLowerCase().trim();
-  const statusF = document.getElementById('statusFilterOther').value;
-  const typeF = document.getElementById('typeFilterOther').value;
-
-  let rows = containers.filter(c=>!isHistory(c) && c.volume!==8);
-  if(search){
-    rows = rows.filter(c => (c.client||'').toLowerCase().includes(search) || (c.address||'').toLowerCase().includes(search));
-  }
-  if(statusF !== 'Все') rows = rows.filter(c=>c.status===statusF);
-  if(typeF !== 'Все') rows = rows.filter(c=>c.type===typeF);
-  rows = rows.slice().sort((a,b)=> (b.installDate||'').localeCompare(a.installDate||''));
-
-  renderActiveTableInto('activeTableBodyOther', rows);
+function sortRows(rows, sortKey){
+  const st = sortState[sortKey];
+  const k = st.key;
+  return rows.slice().sort((a,b)=>{
+    let av, bv;
+    if(k==='days'){ av = daysSince(a.installDate); bv = daysSince(b.installDate); }
+    else if(k==='volume'){ av = a.volume||0; bv = b.volume||0; }
+    else { av = a[k]==null ? '' : String(a[k]); bv = b[k]==null ? '' : String(b[k]); }
+    if(typeof av === 'number') return (av-bv) * st.dir;
+    return av.localeCompare(bv, 'ru') * st.dir;
+  });
 }
 
-function renderActiveTableInto(tbodyId, rows){
-  const tbody = document.getElementById(tbodyId);
+/* ============ АКТИВНЫЕ ТАБЛИЦЫ ============ */
+const VIEWS = {
+  active8:     { volumes:SMALL, search:'searchInput8',    status:'statusFilter8',    type:'typeFilter8',    flag:'flagFilter8',    body:'body-active8',    head:'head-active8',    summary:'summaryBar8',    count:'cnt-active8' },
+  activeOther: { volumes:BIG,   search:'searchInputOther', status:'statusFilterOther', type:'typeFilterOther', flag:'flagFilterOther', body:'body-activeOther', head:'head-activeOther', summary:'summaryBarOther', count:'cnt-activeOther' },
+};
+
+function activeRowsFor(viewKey){
+  const v = VIEWS[viewKey];
+  const search  = (document.getElementById(v.search).value||'').toLowerCase().trim();
+  const statusF = document.getElementById(v.status).value;
+  const typeF   = document.getElementById(v.type).value;
+  const flagF   = document.getElementById(v.flag).value;
+
+  let rows = containers.filter(c=>!isHistory(c) && v.volumes.includes(c.volume));
+  if(search){
+    rows = rows.filter(c =>
+      (c.client||'').toLowerCase().includes(search) ||
+      (c.address||'').toLowerCase().includes(search) ||
+      (c.number||'').toLowerCase().includes(search));
+  }
+  if(statusF !== 'Все') rows = rows.filter(c=>c.status===statusF);
+  if(typeF   !== 'Все') rows = rows.filter(c=>c.type===typeF);
+  if(flagF   !== 'Все') rows = rows.filter(c=>{ const h = highlightFor(c); return h.red || h.orange; });
+  return sortRows(rows, viewKey);
+}
+
+function renderActive(viewKey){
+  const v = VIEWS[viewKey];
+  renderSummaryBar(v.summary, v.volumes);
+  buildHead(v.head, ACTIVE_COLS, viewKey);
+
+  const all = containers.filter(c=>!isHistory(c) && v.volumes.includes(c.volume));
+  document.getElementById(v.count).textContent = all.length;
+
+  const rows = activeRowsFor(viewKey);
+  const tbody = document.getElementById(v.body);
+
   if(rows.length===0){
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="10">Нет контейнеров, соответствующих условиям</td></tr>`;
+    const hasAny = all.length > 0;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="${ACTIVE_COLS.length}">
+      <span class="empty-title">${hasAny ? 'Ничего не найдено' : 'Пока пусто'}</span>
+      ${hasAny ? 'Измените фильтры или очистите поиск.' : 'Нажмите «Добавить контейнер», чтобы поставить первый объект.'}
+    </td></tr>`;
     return;
   }
 
   tbody.innerHTML = rows.map((c,i)=>{
     const h = highlightFor(c);
     const rowClass = h.red ? 'row-red' : (h.orange ? 'row-orange' : '');
+    const daysLabel = `${h.days} ${plural(h.days,'день','дня','дней')}`;
     return `
       <tr class="${rowClass}">
-        <td class="mono">${i+1}</td>
-        <td class="mono">${c.volume} м³</td>
-        <td>${escapeHtml(c.client)}</td>
-        <td>${escapeHtml(c.address)}</td>
-        <td><span class="badge ${badgeClass(c.status)}">${c.status}</span></td>
-        <td class="op-tag">${c.type}</td>
-        <td class="mono">${formatDate(c.installDate)}</td>
-        <td class="days-num">${h.days}</td>
-        <td>${h.reminderText ? `<span class="reminder-text">${h.reminderText}</span>` : ''}</td>
-        <td>
+        <td data-label="№" class="mono">${i+1}</td>
+        <td data-label="Номер" class="mono">${escapeHtml(c.number||'—')}</td>
+        <td data-label="Объём" class="mono">${escapeHtml(String(c.volume))} м³</td>
+        <td data-label="Клиент">${escapeHtml(c.client)}</td>
+        <td data-label="Адрес">${escapeHtml(c.address)}</td>
+        <td data-label="Статус"><span class="badge ${badgeClass(c.status)}">${escapeHtml(c.status)}</span></td>
+        <td data-label="Операция" class="op-tag">${escapeHtml(c.type)}</td>
+        <td data-label="Установлен" class="mono">${formatDate(c.installDate)}</td>
+        <td data-label="Дней" class="days-num" title="${daysLabel} без движения">${h.days}</td>
+        <td data-label="Напоминание">${h.reminderText ? `<span class="reminder-text${h.red?' hot':''}">${h.reminderText}</span>` : ''}</td>
+        <td data-label="Действия">
           <div class="row-actions">
-            <button class="btn btn-ghost btn-sm" onclick="openEditModal('${c.id}')">Ред.</button>
-            <button class="btn btn-amber btn-sm" onclick="openReplaceModal('${c.id}')">Заменить</button>
-            <button class="btn btn-steel btn-sm" onclick="returnToWarehouse('${c.id}')">Снятие</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteContainer('${c.id}')">Удал.</button>
+            <button class="btn btn-ghost btn-sm" data-act="edit" data-id="${c.id}">Ред.</button>
+            <button class="btn btn-amber btn-sm" data-act="replace" data-id="${c.id}">Заменить</button>
+            <button class="btn btn-steel btn-sm" data-act="remove" data-id="${c.id}">Снятие</button>
+            <button class="btn btn-danger btn-sm" data-act="delete" data-id="${c.id}">Удал.</button>
           </div>
         </td>
       </tr>`;
   }).join('');
 }
 
-/* ============ RENDER: HISTORY TABLE ============ */
-function renderHistoryTable(){
-  let rows = containers.filter(isHistory);
-  rows = rows.slice().sort((a,b)=> (b.removalDate||'').localeCompare(a.removalDate||''));
+/* ============ ИСТОРИЯ ============ */
+function historyRows(volumes){
+  const search = (document.getElementById('searchInputHist').value||'').toLowerCase().trim();
+  const volF   = document.getElementById('volFilterHist').value;
+  const from   = document.getElementById('histFrom').value;
+  const to     = document.getElementById('histTo').value;
 
-  const rows8 = rows.filter(c=>c.volume===8);
-  const rowsOther = rows.filter(c=>c.volume!==8);
-
-  renderHistoryTableInto('historyTableBody8', rows8);
-  renderHistoryTableInto('historyTableBodyOther', rowsOther);
+  let rows = containers.filter(c=>isHistory(c) && volumes.includes(c.volume));
+  if(volF !== 'Все') rows = rows.filter(c=>String(c.volume)===volF);
+  if(search){
+    rows = rows.filter(c =>
+      (c.client||'').toLowerCase().includes(search) ||
+      (c.address||'').toLowerCase().includes(search) ||
+      (c.number||'').toLowerCase().includes(search));
+  }
+  if(from) rows = rows.filter(c=>(c.removalDate||'') >= from);
+  if(to)   rows = rows.filter(c=>(c.removalDate||'') <= to);
+  return rows;
 }
 
-function renderHistoryTableInto(tbodyId, rows){
-  const tbody = document.getElementById(tbodyId);
-  if(rows.length===0){
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">История пуста</td></tr>`;
+function renderHistory(){
+  buildHead('head-hist8', HIST_COLS, 'hist8');
+  buildHead('head-histOther', HIST_COLS, 'histOther');
+
+  const total = containers.filter(isHistory).length;
+  document.getElementById('cnt-history').textContent = total;
+
+  renderHistoryInto('hist8', SMALL, 'body-hist8', 'more-hist8', 'histCount8');
+  renderHistoryInto('histOther', BIG, 'body-histOther', 'more-histOther', 'histCountOther');
+}
+
+function renderHistoryInto(sortKey, volumes, bodyId, moreId, countId){
+  const rows = sortRows(historyRows(volumes), sortKey);
+  const limit = histShown[sortKey];
+  const page = rows.slice(0, limit);
+  const tbody = document.getElementById(bodyId);
+  document.getElementById(countId).textContent = rows.length ? `${rows.length} ${plural(rows.length,'запись','записи','записей')}` : '';
+
+  const more = document.getElementById(moreId);
+  more.style.display = rows.length > limit ? 'block' : 'none';
+  more.textContent = `Показать ещё ${Math.min(HIST_PAGE, rows.length - limit)}`;
+  more.dataset.key = sortKey;
+
+  if(page.length===0){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="${HIST_COLS.length}">
+      <span class="empty-title">История пуста</span>Здесь появятся контейнеры после снятия.</td></tr>`;
     return;
   }
-  tbody.innerHTML = rows.map((c,i)=>`
+  tbody.innerHTML = page.map((c,i)=>`
     <tr>
-      <td class="mono">${i+1}</td>
-      <td class="mono">${c.volume} м³</td>
-      <td class="mono">${c.number}</td>
-      <td>${escapeHtml(c.client)}</td>
-      <td>${escapeHtml(c.address)}</td>
-      <td class="mono">${formatDate(c.installDate)}</td>
-      <td class="mono">${formatDate(c.removalDate)}</td>
-      <td class="op-tag">${c.prevType || c.type}</td>
+      <td data-label="№" class="mono">${i+1}</td>
+      <td data-label="Номер" class="mono">${escapeHtml(c.number||'—')}</td>
+      <td data-label="Объём" class="mono">${escapeHtml(String(c.volume))} м³</td>
+      <td data-label="Клиент">${escapeHtml(c.client)}</td>
+      <td data-label="Адрес">${escapeHtml(c.address)}</td>
+      <td data-label="Установлен" class="mono">${formatDate(c.installDate)}</td>
+      <td data-label="Снят" class="mono">${formatDate(c.removalDate)}</td>
+      <td data-label="Операция" class="op-tag">${escapeHtml(c.prevType || c.type)}</td>
+      <td data-label="Действия"><div class="row-actions">
+        <button class="btn btn-ghost btn-sm" data-act="restore" data-id="${c.id}">Вернуть в работу</button>
+      </div></td>
     </tr>`).join('');
 }
 
-function escapeHtml(str){
-  if(str==null) return '';
-  return String(str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+/* ============ ЖУРНАЛ ============ */
+let journalLoaded = false;
+async function loadJournal(force){
+  if(journalLoaded && !force) return;
+  const list = document.getElementById('journalList');
+  list.innerHTML = '<div class="journal-empty">Загрузка…</div>';
+  try{
+    const snap = await db.collection('journal').orderBy('ts','desc').limit(200).get();
+    journalLoaded = true;
+    if(snap.empty){
+      list.innerHTML = '<div class="journal-empty">Записей пока нет. Здесь будут отражаться постановки, замены, снятия и правки.</div>';
+      return;
+    }
+    list.innerHTML = snap.docs.map(d=>{
+      const x = d.data();
+      const t = x.ts && x.ts.toDate ? x.ts.toDate() : null;
+      const when = t
+        ? `${String(t.getDate()).padStart(2,'0')}.${String(t.getMonth()+1).padStart(2,'0')}.${t.getFullYear()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`
+        : '—';
+      return `<div class="journal-item">
+        <div class="journal-time">${when}</div>
+        <div class="journal-actor">${escapeHtml(x.actor||'—')}</div>
+        <div class="journal-text">${escapeHtml(x.text||'')}</div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    console.error(e);
+    list.innerHTML = '<div class="journal-empty">Журнал недоступен. Проверьте правила доступа к коллекции <b>journal</b> в Firebase.</div>';
+  }
 }
 
-/* ============ RENDER ALL ============ */
+/* ============ ВЫГРУЗКА В EXCEL (CSV) ============ */
+function exportCSV(filename, headers, rows){
+  const sep = ';';
+  const esc = v => {
+    const s = v==null ? '' : String(v);
+    return /[";\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  };
+  const csv = '\uFEFF' + [headers, ...rows].map(r=>r.map(esc).join(sep)).join('\r\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  toast('Файл выгружен: '+filename, {type:'ok'});
+}
+function doExport(viewKey){
+  const stampName = todayISO();
+  if(viewKey==='history'){
+    const rows = sortRows(historyRows(VOLUMES), 'hist8').map(c=>[
+      c.number||'', c.volume, c.client, c.address, formatDate(c.installDate), formatDate(c.removalDate), c.prevType||c.type
+    ]);
+    exportCSV(`история-контейнеров-${stampName}.csv`,
+      ['Номер','Объём, м³','Клиент','Адрес','Установлен','Снят','Операция'], rows);
+    return;
+  }
+  const rows = activeRowsFor(viewKey).map(c=>{
+    const h = highlightFor(c);
+    return [c.number||'', c.volume, c.client, c.address, c.status, c.type, formatDate(c.installDate), h.days, h.reminderText];
+  });
+  const name = viewKey==='active8' ? 'активные-8м3' : 'активные-20м3-плюс';
+  exportCSV(`${name}-${stampName}.csv`,
+    ['Номер','Объём, м³','Клиент','Адрес','Статус','Операция','Установлен','Дней без движения','Напоминание'], rows);
+}
+
+/* ============ ОБЩАЯ ОТРИСОВКА ============ */
 function renderAll(){
   renderYard();
-  renderActiveTable8();
-  renderActiveTableOther();
-  renderHistoryTable();
+  renderActive('active8');
+  renderActive('activeOther');
+  renderHistory();
+  refreshDatalists();
+}
+function refreshDatalists(){
+  const clients = [...new Set(containers.map(c=>c.client).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+  const addrs   = [...new Set(containers.map(c=>c.address).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+  document.getElementById('clientList').innerHTML  = clients.map(x=>`<option value="${escapeHtml(x)}">`).join('');
+  document.getElementById('addressList').innerHTML = addrs.map(x=>`<option value="${escapeHtml(x)}">`).join('');
 }
 
-/* ============ TABS ============ */
+/* ============ ВКЛАДКИ ============ */
 function switchTab(tab){
+  if(!document.getElementById('panel-'+tab)) tab = 'active8';
+  currentTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+tab).classList.add('active');
+  try{ localStorage.setItem('ti_tab', tab); }catch(e){}
+  if(location.hash.slice(1) !== tab) history.replaceState(null,'','#'+tab);
+  if(tab==='journal') loadJournal();
 }
 
-/* ============ MODALS: ADD/EDIT ============ */
-function fillVolumeSelect(selectEl){
-  selectEl.innerHTML = VOLUMES.map(v=>`<option value="${v}">${v} м³</option>`).join('');
+/* ============ МОДАЛКИ: ДОБАВИТЬ / РЕДАКТИРОВАТЬ ============ */
+let lastFocused = null;
+function openModal(id){
+  lastFocused = document.activeElement;
+  document.getElementById(id).classList.add('active');
 }
-function openAddModal(){
+function closeModal(id){
+  document.getElementById(id).classList.remove('active');
+  if(lastFocused && lastFocused.focus) lastFocused.focus();
+}
+function topModal(){
+  const list = [...document.querySelectorAll('.modal-backdrop.active')];
+  return list.length ? list[list.length-1] : null;
+}
+
+function fillVolumeSelect(selectEl, selected){
+  selectEl.innerHTML = VOLUMES.map(v=>{
+    const free = freeForVolume(v);
+    return `<option value="${v}"${selected===v?' selected':''}>${v} м³ — свободно ${free}</option>`;
+  }).join('');
+}
+function clearFieldErrors(){
+  ['fld-client','fld-address','fld-date','fld-removalDate'].forEach(id=>document.getElementById(id).classList.remove('invalid'));
+  document.getElementById('addWarn').classList.remove('show');
+}
+let editOriginalVolume = null;
+function updateVolumeNote(){
+  const v = parseInt(document.getElementById('f-volume').value,10);
+  const isEdit = !!document.getElementById('editId').value;
+  const free = freeForVolume(v);
+  const note = document.getElementById('volumeNote');
+  if(isEdit && v === editOriginalVolume){
+    note.textContent = 'Объём можно исправить прямо здесь — например, если по факту поставили другой.';
+  } else if(free > 0){
+    note.textContent = `На складе свободно: ${free} шт.`;
+  } else {
+    note.textContent = 'На складе нет свободных контейнеров этого объёма.';
+  }
+}
+/* Поле «Дата снятия» показывается только для операции «Снятие» */
+function toggleRemovalField(){
+  const isRemoval = document.getElementById('f-type').value === 'Снятие';
+  const fld = document.getElementById('fld-removalDate');
+  fld.style.display = isRemoval ? '' : 'none';
+  if(isRemoval && !document.getElementById('f-removalDate').value){
+    document.getElementById('f-removalDate').value = todayISO();
+  }
+}
+
+function openAddModal(preVolume){
+  clearFieldErrors();
+  editOriginalVolume = null;
   document.getElementById('containerModalTitle').textContent = 'Добавить контейнер';
   document.getElementById('editId').value = '';
   const volSel = document.getElementById('f-volume');
-  fillVolumeSelect(volSel);
+  fillVolumeSelect(volSel, preVolume || VOLUMES[0]);
+  volSel.disabled = false;
   document.getElementById('f-client').value = '';
   document.getElementById('f-address').value = '';
   document.getElementById('f-installDate').value = todayISO();
+  document.getElementById('f-installDate').max = todayISO();
+  document.getElementById('f-removalDate').value = '';
+  document.getElementById('f-removalDate').max = todayISO();
   document.getElementById('f-status').value = 'В работе';
   document.getElementById('f-type').value = 'Постановка';
-  volSel.disabled = false;
+  updateVolumeNote();
+  toggleRemovalField();
   openModal('containerModalBackdrop');
+  document.getElementById('f-client').focus();
 }
 function openEditModal(id){
   const c = containers.find(x=>x.id===id);
   if(!c) return;
-  document.getElementById('containerModalTitle').textContent = 'Редактировать контейнер';
+  clearFieldErrors();
+  editOriginalVolume = c.volume;
+  document.getElementById('containerModalTitle').textContent = `Редактировать ${c.number || 'контейнер'}`;
   document.getElementById('editId').value = id;
   const volSel = document.getElementById('f-volume');
-  fillVolumeSelect(volSel);
+  fillVolumeSelect(volSel, c.volume);
   volSel.value = c.volume;
-  volSel.disabled = true; // volume not editable per spec
-  document.getElementById('f-client').value = c.client;
-  document.getElementById('f-address').value = c.address;
+  volSel.disabled = false;             // объём можно исправить: 20 → 27 и т.д.
+  document.getElementById('f-client').value = c.client||'';
+  document.getElementById('f-address').value = c.address||'';
   document.getElementById('f-installDate').value = c.installDate || todayISO();
+  document.getElementById('f-installDate').max = todayISO();
+  document.getElementById('f-removalDate').value = c.removalDate || '';
+  document.getElementById('f-removalDate').max = todayISO();
   document.getElementById('f-status').value = c.status;
   document.getElementById('f-type').value = c.type;
+  updateVolumeNote();
+  toggleRemovalField();
   openModal('containerModalBackdrop');
+  document.getElementById('f-client').focus();
 }
 
 async function saveContainer(){
+  const btn = document.getElementById('saveContainerBtn');
   const id = document.getElementById('editId').value;
   const volume = parseInt(document.getElementById('f-volume').value,10);
   const client = document.getElementById('f-client').value.trim();
   const address = document.getElementById('f-address').value.trim();
   const installDate = document.getElementById('f-installDate').value;
+  const removalDate = document.getElementById('f-removalDate').value;
   const status = document.getElementById('f-status').value;
   const type = document.getElementById('f-type').value;
 
-  if(!client || !address){
-    alert('Заполните клиента и адрес.');
-    return;
+  clearFieldErrors();
+  let bad = false;
+  if(!client){ document.getElementById('fld-client').classList.add('invalid'); bad = true; }
+  if(!address){ document.getElementById('fld-address').classList.add('invalid'); bad = true; }
+  if(!installDate){ document.getElementById('fld-date').classList.add('invalid'); bad = true; }
+  if(type==='Снятие' && !removalDate){ document.getElementById('fld-removalDate').classList.add('invalid'); bad = true; }
+  if(bad) return;
+
+  if(type==='Снятие' && removalDate && removalDate < installDate){
+    const go = await askConfirm('Дата снятия раньше постановки',
+      `Снятие ${formatDate(removalDate)} стоит раньше постановки ${formatDate(installDate)}. Сохранить как есть?`, 'Сохранить');
+    if(!go) return;
   }
-  if(!installDate){
-    alert('Укажите дату постановки.');
-    return;
+
+  // смена объёма при редактировании — проверяем наличие на складе
+  if(id && editOriginalVolume !== null && volume !== editOriginalVolume && freeForVolume(volume) <= 0){
+    const go = await askConfirm('Нет свободных на складе',
+      `Свободных контейнеров ${volume} м³ на складе не числится. Всё равно поменять объём с ${editOriginalVolume} м³ на ${volume} м³?`,
+      'Поменять');
+    if(!go) return;
   }
 
-  let newContainer = null;
-
-  if(id){
-    // EDIT existing
-    const c = containers.find(x=>x.id===id);
-    if(!c) return;
-
-    if(type === 'Снятие' && c.type !== 'Снятие'){
-      c.removalDate = todayISO();
-      c.prevType = c.type; // remember what operation it was, for history display
-    } else if(type !== 'Снятие' && c.type === 'Снятие'){
-      c.removalDate = null;
+  if(!id){
+    // дубликат на том же адресе
+    const dup = containers.find(c=>!isHistory(c) && c.volume===volume &&
+      (c.client||'').toLowerCase()===client.toLowerCase() &&
+      (c.address||'').toLowerCase()===address.toLowerCase());
+    if(dup){
+      const go = await askConfirm('Похоже на дубль',
+        `У клиента «${client}» по адресу «${address}» уже стоит контейнер ${volume} м³ (${dup.number||'без номера'}). Всё равно добавить ещё один?`,
+        'Добавить');
+      if(!go) return;
     }
-
-    c.client = client;
-    c.address = address;
-    c.installDate = installDate;
-    c.status = status;
-    c.type = type;
-    newContainer = c;
-  } else {
-    // ADD new
-    const c = {
-      id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random())),
-      number: nextNumber(),
-      volume, client, address, status, type,
-      installDate: installDate,
-      removalDate: type==='Снятие' ? todayISO() : null,
-      prevType: null,
-    };
-    containers.push(c);
-    newContainer = c;
-    await syncCounter();
+    if(type !== 'Снятие' && freeForVolume(volume) <= 0){
+      const go = await askConfirm('Нет свободных на складе',
+        `Свободных контейнеров ${volume} м³ на складе не числится. Поставить всё равно?`,
+        'Поставить');
+      if(!go) return;
+    }
   }
 
-  await upsertContainerRow(newContainer);
-  closeModal('containerModalBackdrop');
-  renderAll();
+  btn.disabled = true;
+  try{
+    let c;
+    if(id){
+      c = containers.find(x=>x.id===id);
+      if(!c) return;
+      const before = { client:c.client, address:c.address, status:c.status, type:c.type,
+                       installDate:c.installDate, removalDate:c.removalDate, volume:c.volume };
+
+      if(type === 'Снятие'){
+        if(before.type !== 'Снятие') c.prevType = before.type;
+        c.removalDate = removalDate || todayISO();
+      } else {
+        c.removalDate = null;
+      }
+      c.volume = volume;
+      c.client = client; c.address = address; c.installDate = installDate;
+      c.status = status; c.type = type;
+
+      if(await upsertContainerRow(c)){
+        const changes = [];
+        if(before.volume!==volume) changes.push(`объём ${before.volume} м³ → ${volume} м³`);
+        if(before.client!==client) changes.push(`клиент → ${client}`);
+        if(before.address!==address) changes.push(`адрес → ${address}`);
+        if(before.status!==status) changes.push(`статус → ${status}`);
+        if(before.type!==type) changes.push(`операция → ${type}`);
+        if(before.installDate!==installDate) changes.push(`дата постановки → ${formatDate(installDate)}`);
+        if((before.removalDate||'')!==(c.removalDate||'') && c.removalDate) changes.push(`дата снятия → ${formatDate(c.removalDate)}`);
+        logEvent('edit', `Изменил ${c.number||'контейнер'} (${volume} м³)${changes.length?': '+changes.join(', '):''}`);
+        toast(`${c.number || 'Контейнер'} сохранён`, {type:'ok'});
+      }
+    } else {
+      const number = await allocateNumber();
+      c = {
+        id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random().toString(36).slice(2)),
+        number, volume, client, address, status, type,
+        installDate,
+        removalDate: type==='Снятие' ? todayISO() : null,
+        prevType: null,
+      };
+      if(await upsertContainerRow(c)){
+        logEvent('add', `Поставил ${number} (${volume} м³) — ${client}, ${address}`);
+        toast(`${number} поставлен: ${client}`, {type:'ok'});
+      }
+    }
+    closeModal('containerModalBackdrop');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
-async function returnToWarehouse(id){
+function openRemoveModal(id){
   const c = containers.find(x=>x.id===id);
+  if(!c || isHistory(c)) return;
+  removeTargetId = id;
+  document.getElementById('fld-remove-date').classList.remove('invalid');
+  document.getElementById('removeInfo').textContent =
+    `${c.number ? c.number+' · ' : ''}${c.client} · ${c.address} · ${c.volume} м³. Поставлен ${formatDate(c.installDate)}.`;
+  const d = document.getElementById('f-remove-date');
+  d.value = todayISO();
+  d.max = todayISO();
+  d.min = c.installDate || '';
+  openModal('removeModalBackdrop');
+  d.focus();
+}
+async function confirmRemove(){
+  const c = containers.find(x=>x.id===removeTargetId);
   if(!c) return;
-  if(isHistory(c)) return;
-  if(!confirm(`Снять контейнер у клиента «${c.client}» (${c.address}) и вернуть на склад?`)) return;
+  const date = document.getElementById('f-remove-date').value;
+  if(!date){ document.getElementById('fld-remove-date').classList.add('invalid'); return; }
+  if(c.installDate && date < c.installDate){
+    const go = await askConfirm('Дата снятия раньше постановки',
+      `Снятие ${formatDate(date)} стоит раньше постановки ${formatDate(c.installDate)}. Сохранить как есть?`, 'Сохранить');
+    if(!go) return;
+  }
   c.prevType = c.type;
   c.type = 'Снятие';
-  c.removalDate = todayISO();
-  await upsertContainerRow(c);
-  renderAll();
+  c.removalDate = date;
+  if(await upsertContainerRow(c)){
+    logEvent('remove', `Снял ${c.number||'контейнер'} (${c.volume} м³) ${formatDate(date)} — ${c.client}, ${c.address}`);
+    toast(`${c.number || 'Контейнер'} снят ${formatDate(date)} и вернулся на склад`, {type:'ok'});
+  }
+  closeModal('removeModalBackdrop');
+}
+
+async function restoreFromHistory(id){
+  const c = containers.find(x=>x.id===id);
+  if(!c) return;
+  const ok = await askConfirm('Вернуть в работу',
+    `${c.number || 'Контейнер'} снова будет числиться активным у клиента «${c.client}». Продолжить?`, 'Вернуть');
+  if(!ok) return;
+  c.type = c.prevType || 'Постановка';
+  c.prevType = null;
+  c.removalDate = null;
+  if(await upsertContainerRow(c)){
+    logEvent('restore', `Вернул в работу ${c.number||'контейнер'} — ${c.client}, ${c.address}`);
+    toast(`${c.number || 'Контейнер'} снова в работе`, {type:'ok'});
+    switchTab(c.volume===8 ? 'active8' : 'activeOther');
+  }
 }
 
 async function deleteContainer(id){
   const c = containers.find(x=>x.id===id);
   if(!c) return;
-  if(!confirm('Удалить контейнер безвозвратно?')) return;
-  containers = containers.filter(x=>x.id!==id);
-  await deleteContainerRow(id);
-  renderAll();
+  const ok = await askConfirm('Удалить контейнер',
+    `${c.number || 'Контейнер'} — ${c.client}, ${c.address}. Запись удалится из базы у всех сотрудников.`,
+    'Удалить', true);
+  if(!ok) return;
+  const snapshot = { ...c };
+  if(await deleteContainerRow(id)){
+    lastDeleted = snapshot;
+    logEvent('delete', `Удалил ${c.number||'контейнер'} (${c.volume} м³) — ${c.client}, ${c.address}`);
+    toast(`${c.number || 'Контейнер'} удалён`, {
+      actionLabel:'Отменить',
+      onAction: async ()=>{
+        if(await upsertContainerRow(lastDeleted)){
+          logEvent('undo', `Восстановил ${lastDeleted.number||'контейнер'}`);
+          toast('Удаление отменено', {type:'ok'});
+        }
+      }
+    });
+  }
 }
 
-/* ============ MODALS: STOCK ============ */
+/* ============ МОДАЛКА: СКЛАД ============ */
 function openStockModal(){
-  const grid = document.getElementById('stockQtyGrid');
-  grid.innerHTML = VOLUMES.map(v=>`
+  document.getElementById('stockQtyGrid').innerHTML = VOLUMES.map(v=>`
     <div class="field">
-      <label>${v} м³</label>
-      <input type="number" min="0" id="stock-input-${v}" value="${stock[v]||0}">
+      <label for="stock-input-${v}">${v} м³</label>
+      <input type="number" min="0" step="1" id="stock-input-${v}" value="${stock[v]||0}">
     </div>`).join('');
   openModal('stockModalBackdrop');
+  const first = document.getElementById('stock-input-'+VOLUMES[0]);
+  if(first){ first.focus(); first.select(); }
 }
 async function saveStock(){
+  const before = { ...stock };
   VOLUMES.forEach(v=>{
     const val = parseInt(document.getElementById('stock-input-'+v).value,10);
-    stock[v] = isNaN(val) || val<0 ? 0 : val;
+    stock[v] = (isNaN(val) || val<0) ? 0 : val;
   });
-  await syncStock();
+  if(await syncStock()){
+    const changed = VOLUMES.filter(v=>before[v]!==stock[v]).map(v=>`${v} м³: ${before[v]||0} → ${stock[v]}`);
+    if(changed.length) logEvent('stock', 'Изменил количество на складе — ' + changed.join('; '));
+    toast('Количество на складе сохранено', {type:'ok'});
+  }
   closeModal('stockModalBackdrop');
   renderAll();
 }
 
-/* ============ MODALS: REPLACE ============ */
+/* ============ МОДАЛКА: ЗАМЕНА ============ */
 function openReplaceModal(id){
   const c = containers.find(x=>x.id===id);
   if(!c) return;
   replaceTargetId = id;
   document.getElementById('replaceInfo').textContent =
-    `${c.client} · ${c.address} · текущий объём ${c.volume} м³.`;
+    `${c.number ? c.number+' · ' : ''}${c.client} · ${c.address} · текущий объём ${c.volume} м³.`;
   const sel = document.getElementById('f-replace-volume');
   sel.innerHTML = VOLUMES.map(v=>{
     const isCurrent = v===c.volume;
     const avail = freeForVolume(v);
-    const disabled = (!isCurrent && avail<=0) ? 'disabled' : '';
-    const label = isCurrent
-      ? `${v} м³ — текущий (свободно на складе: ${avail})`
-      : `${v} м³ (свободно на складе: ${avail})`;
-    return `<option value="${v}" ${disabled}>${label}</option>`;
+    const disabled = (!isCurrent && avail<=0) ? ' disabled' : '';
+    const label = isCurrent ? `${v} м³ — текущий (свободно: ${avail})` : `${v} м³ (свободно: ${avail})`;
+    return `<option value="${v}"${disabled}>${label}</option>`;
   }).join('');
   sel.value = c.volume;
+  document.getElementById('fld-replace-date').classList.remove('invalid');
+  const d = document.getElementById('f-replace-date');
+  d.value = todayISO();
+  d.max = todayISO();
   openModal('replaceModalBackdrop');
+  sel.focus();
 }
 async function confirmReplace(){
   const c = containers.find(x=>x.id===replaceTargetId);
   if(!c) return;
   const newVolume = parseInt(document.getElementById('f-replace-volume').value,10);
+  const oldVolume = c.volume;
+  const date = document.getElementById('f-replace-date').value;
 
-  if(newVolume !== c.volume){
+  if(!date){ document.getElementById('fld-replace-date').classList.add('invalid'); return; }
+
+  if(newVolume !== oldVolume){
     if(freeForVolume(newVolume) <= 0){
-      alert('На складе нет свободных контейнеров этого объёма.');
+      toast('На складе нет свободных контейнеров этого объёма.', {type:'err'});
       return;
     }
-    // Общее купленное количество не меняется — просто у контейнера меняется объём,
-    // «На складе» пересчитывается автоматически.
     c.volume = newVolume;
   }
-
-  c.installDate = todayISO();
+  c.installDate = date;
   c.type = 'Замена';
-  await upsertContainerRow(c);
+  if(await upsertContainerRow(c)){
+    logEvent('replace', newVolume!==oldVolume
+      ? `Заменил ${c.number||'контейнер'} у ${c.client} ${formatDate(date)} — ${oldVolume} м³ → ${newVolume} м³`
+      : `Заменил ${c.number||'контейнер'} (${newVolume} м³) ${formatDate(date)} — ${c.client}, ${c.address}`);
+    toast(`Замена записана ${formatDate(date)}${newVolume!==oldVolume ? `: ${oldVolume} м³ → ${newVolume} м³` : ''}`, {type:'ok'});
+  }
   closeModal('replaceModalBackdrop');
-  renderAll();
 }
 
-/* ============ MODAL GENERIC ============ */
-function openModal(id){ document.getElementById(id).classList.add('active'); }
-function closeModal(id){ document.getElementById(id).classList.remove('active'); }
-document.querySelectorAll('.modal-backdrop').forEach(bd=>{
-  bd.addEventListener('click', e=>{ if(e.target===bd) bd.classList.remove('active'); });
+/* ============ СОБЫТИЯ ============ */
+document.addEventListener('click', async e=>{
+  const sortTh = e.target.closest('th.sortable');
+  if(sortTh){
+    const key = sortTh.dataset.sort, table = sortTh.dataset.table;
+    const st = sortState[table];
+    if(st.key === key) st.dir = -st.dir; else { st.key = key; st.dir = (key==='installDate'||key==='removalDate') ? -1 : 1; }
+    if(table.startsWith('hist')) renderHistory(); else renderActive(table);
+    return;
+  }
+
+  const tab = e.target.closest('.tab-btn');
+  if(tab){ switchTab(tab.dataset.tab); return; }
+
+  const more = e.target.closest('.load-more');
+  if(more){ histShown[more.dataset.key] += HIST_PAGE; renderHistory(); return; }
+
+  const el = e.target.closest('[data-act]');
+  if(!el) return;
+  const act = el.dataset.act, id = el.dataset.id;
+
+  switch(act){
+    case 'add':      openAddModal(el.dataset.volume ? parseInt(el.dataset.volume,10) : null); break;
+    case 'edit':     openEditModal(id); break;
+    case 'replace':  openReplaceModal(id); break;
+    case 'remove':   openRemoveModal(id); break;
+    case 'confirm-remove': confirmRemove(); break;
+    case 'restore':  restoreFromHistory(id); break;
+    case 'delete':   deleteContainer(id); break;
+    case 'stock':    openStockModal(); break;
+    case 'save-container': saveContainer(); break;
+    case 'save-stock':     saveStock(); break;
+    case 'confirm-replace':confirmReplace(); break;
+    case 'export':   doExport(el.dataset.view); break;
+    case 'reload-journal': loadJournal(true); break;
+    case 'close':    closeModal(el.dataset.modal); break;
+    case 'confirm-yes': settleConfirm(true); break;
+    case 'confirm-no':  settleConfirm(false); break;
+    case 'save-actor': {
+      const n = document.getElementById('f-actor').value.trim();
+      setActor(n);
+      closeModal('actorModalBackdrop');
+      if(n) toast('Записи в журнале будут подписаны: '+n, {type:'ok'});
+      break;
+    }
+    case 'reset-filters': {
+      const view = el.dataset.view;
+      if(view==='history'){
+        ['searchInputHist','histFrom','histTo'].forEach(x=>document.getElementById(x).value='');
+        document.getElementById('volFilterHist').value = 'Все';
+        histShown.hist8 = HIST_PAGE; histShown.histOther = HIST_PAGE;
+        renderHistory();
+      } else {
+        const v = VIEWS[view];
+        document.getElementById(v.search).value = '';
+        document.getElementById(v.status).value = 'Все';
+        document.getElementById(v.type).value = 'Все';
+        document.getElementById(v.flag).value = 'Все';
+        renderActive(view);
+      }
+      break;
+    }
+  }
 });
 
-/* ============ INIT ============ */
-document.getElementById('todayStamp').textContent = 'Сегодня: ' + formatDate(todayISO());
-/* rendering now happens automatically once live listeners deliver initial data — see _maybeRenderOnceReady() above */
+document.getElementById('actorChip').addEventListener('click', ()=>{
+  document.getElementById('f-actor').value = getActor();
+  openModal('actorModalBackdrop');
+  document.getElementById('f-actor').focus();
+});
+
+// фильтры активных таблиц
+['active8','activeOther'].forEach(view=>{
+  const v = VIEWS[view];
+  document.getElementById(v.search).addEventListener('input', debounce(()=>renderActive(view), 140));
+  [v.status, v.type, v.flag].forEach(id=>document.getElementById(id).addEventListener('change', ()=>renderActive(view)));
+});
+// фильтры истории
+['searchInputHist'].forEach(id=>document.getElementById(id).addEventListener('input', debounce(renderHistory,140)));
+['volFilterHist','histFrom','histTo'].forEach(id=>document.getElementById(id).addEventListener('change', ()=>{
+  histShown.hist8 = HIST_PAGE; histShown.histOther = HIST_PAGE; renderHistory();
+}));
+document.getElementById('f-volume').addEventListener('change', updateVolumeNote);
+document.getElementById('f-type').addEventListener('change', toggleRemovalField);
+
+// закрытие модалок по клику на фон
+document.querySelectorAll('.modal-backdrop').forEach(bd=>{
+  bd.addEventListener('click', e=>{
+    if(e.target!==bd) return;
+    if(bd.id==='confirmBackdrop'){ settleConfirm(false); return; }
+    bd.classList.remove('active');
+  });
+});
+
+// клавиатура
+document.addEventListener('keydown', e=>{
+  const modal = topModal();
+  if(e.key === 'Escape' && modal){
+    e.preventDefault();
+    if(modal.id==='confirmBackdrop') settleConfirm(false); else modal.classList.remove('active');
+    return;
+  }
+  if(e.key === 'Enter' && modal && e.target.tagName === 'INPUT'){
+    e.preventDefault();
+    const primary = modal.querySelector('.modal-actions .btn:last-child');
+    if(primary) primary.click();
+    return;
+  }
+  if(modal) return;
+  if(e.key === '/' && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)){
+    e.preventDefault();
+    const box = document.querySelector('.tab-panel.active .search-box');
+    if(box) box.focus();
+  }
+  if((e.key === 'n' || e.key === 'т') && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && (currentTab==='active8'||currentTab==='activeOther')){
+    e.preventDefault();
+    openAddModal(currentTab==='active8' ? 8 : 20);
+  }
+});
+
+/* ============ СТАРТ ============ */
+function refreshDayStamp(){
+  const t = todayISO();
+  if(t === dayStamp) return;
+  dayStamp = t;
+  document.getElementById('todayStamp').textContent = 'Сегодня: ' + formatDate(t);
+  if(ready.containers && ready.stock) renderAll();   // «дней без движения» пересчитается
+}
+setInterval(refreshDayStamp, 60000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) refreshDayStamp(); });
+
+document.getElementById('volFilterHist').innerHTML =
+  '<option value="Все">Объём: все</option>' + VOLUMES.map(v=>`<option value="${v}">${v} м³</option>`).join('');
+
+document.getElementById('yardGrid').innerHTML =
+  VOLUMES.map(()=>'<div class="skeleton sk-card"></div>').join('');
+
+refreshDayStamp();
+renderActorChip();
+refreshConn();
+
+let startTab = location.hash.slice(1);
+if(!startTab){ try{ startTab = localStorage.getItem('ti_tab') || 'active8'; }catch(e){ startTab = 'active8'; } }
+switchTab(startTab);
+window.addEventListener('hashchange', ()=>switchTab(location.hash.slice(1) || 'active8'));
 </script>
 </body>
 </html>
