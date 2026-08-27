@@ -276,6 +276,31 @@
   .journal-text{color:var(--ink);}
   .journal-empty{padding:34px;text-align:center;color:var(--muted);}
 
+  /* ---------- Container history timeline ---------- */
+  .timeline{list-style:none;margin:0;padding:0 0 0 4px;max-height:60vh;overflow-y:auto;}
+  .timeline-item{position:relative;padding:0 0 18px 26px;border-left:2px solid var(--line);}
+  .timeline-item:last-child{border-color:transparent;padding-bottom:2px;}
+  .timeline-dot{
+    position:absolute;left:-7px;top:2px;width:12px;height:12px;border-radius:50%;
+    background:var(--steel);border:2px solid var(--surface);box-shadow:0 0 0 1px var(--steel);
+  }
+  .timeline-item.tl-add .timeline-dot{background:var(--green);box-shadow:0 0 0 1px var(--green);}
+  .timeline-item.tl-replace .timeline-dot{background:var(--amber);box-shadow:0 0 0 1px var(--amber);}
+  .timeline-item.tl-remove .timeline-dot{background:var(--blue);box-shadow:0 0 0 1px var(--blue);}
+  .timeline-item.tl-restore .timeline-dot{background:var(--green);box-shadow:0 0 0 1px var(--green);}
+  .timeline-item.tl-delete .timeline-dot,.timeline-item.tl-undo .timeline-dot{background:var(--red);box-shadow:0 0 0 1px var(--red);}
+  .timeline-item.tl-edit .timeline-dot{background:var(--grey);box-shadow:0 0 0 1px var(--grey);}
+  .timeline-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .timeline-action{
+    font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.04em;color:var(--steel-dark);
+  }
+  .timeline-date{font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:var(--ink);}
+  .timeline-logged{font-size:11px;color:var(--muted);}
+  .timeline-text{font-size:13px;color:var(--ink);margin-top:3px;}
+  .timeline-actor{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .timeline-actor b{color:var(--steel-dark);}
+
   /* ---------- Modal ---------- */
   .modal-backdrop{
     display:none;position:fixed;inset:0;background:rgba(15,20,17,.55);
@@ -670,6 +695,18 @@
   </div>
 </div>
 
+<!-- Container history modal -->
+<div class="modal-backdrop" id="historyModalBackdrop">
+  <div class="modal" style="max-width:560px;" role="dialog" aria-modal="true">
+    <h3 id="historyModalTitle">История контейнера</h3>
+    <p class="hint" id="historySubtitle"></p>
+    <div id="historyTimeline"><div class="journal-empty">Загрузка…</div></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-act="close" data-modal="historyModalBackdrop">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <!-- Generic confirm modal -->
 <div class="modal-backdrop" id="confirmBackdrop">
   <div class="modal" style="max-width:400px;" role="dialog" aria-modal="true">
@@ -740,13 +777,17 @@ function renderActorChip(){
   document.getElementById('actorLabel').textContent = name || 'Кто работает?';
   chip.classList.toggle('unset', !name);
 }
-function logEvent(action, text){
+function logEvent(action, text, meta){
   try{
-    db.collection('journal').add({
+    const doc = {
       ts: firebase.firestore.FieldValue.serverTimestamp(),
       actor: getActor() || 'не указан',
       action, text
-    }).catch(()=>{});
+    };
+    if(meta && meta.containerId) doc.containerId = meta.containerId;
+    if(meta && meta.containerNumber) doc.containerNumber = meta.containerNumber;
+    if(meta && meta.eventDate) doc.eventDate = meta.eventDate;
+    db.collection('journal').add(doc).catch(()=>{});
   }catch(e){ /* журнал не должен ломать основную работу */ }
 }
 
@@ -1136,6 +1177,7 @@ function renderActive(viewKey){
         <td data-label="Напоминание">${h.reminderText ? `<span class="reminder-text${h.red?' hot':''}">${h.reminderText}</span>` : ''}</td>
         <td data-label="Действия">
           <div class="row-actions">
+            <button class="btn btn-ghost btn-sm" data-act="history" data-id="${c.id}" title="История контейнера">История</button>
             <button class="btn btn-ghost btn-sm" data-act="edit" data-id="${c.id}">Ред.</button>
             <button class="btn btn-amber btn-sm" data-act="replace" data-id="${c.id}">Заменить</button>
             <button class="btn btn-steel btn-sm" data-act="remove" data-id="${c.id}">Снятие</button>
@@ -1205,6 +1247,7 @@ function renderHistoryInto(sortKey, volumes, bodyId, moreId, countId){
       <td data-label="Снят" class="mono">${formatDate(c.removalDate)}</td>
       <td data-label="Операция" class="op-tag">${escapeHtml(c.prevType || c.type)}</td>
       <td data-label="Действия"><div class="row-actions">
+        <button class="btn btn-ghost btn-sm" data-act="history" data-id="${c.id}" title="История контейнера">История</button>
         <button class="btn btn-ghost btn-sm" data-act="restore" data-id="${c.id}">Вернуть в работу</button>
       </div></td>
     </tr>`).join('');
@@ -1239,6 +1282,72 @@ async function loadJournal(force){
     console.error(e);
     list.innerHTML = '<div class="journal-empty">Журнал недоступен. Проверьте правила доступа к коллекции <b>journal</b> в Firebase.</div>';
   }
+}
+
+const ACTION_LABELS = {
+  add:'Постановка', edit:'Правка', replace:'Замена', remove:'Снятие',
+  restore:'Возврат в работу', delete:'Удаление', undo:'Восстановление', stock:'Склад'
+};
+function formatTs(ts){
+  const t = ts && ts.toDate ? ts.toDate() : null;
+  if(!t) return null;
+  return `${String(t.getDate()).padStart(2,'0')}.${String(t.getMonth()+1).padStart(2,'0')}.${t.getFullYear()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+}
+
+async function openHistoryModal(id){
+  const c = containers.find(x=>x.id===id);
+  document.getElementById('historyModalTitle').textContent = `История: ${c ? (c.number||'контейнер') : 'контейнер'}`;
+  document.getElementById('historySubtitle').textContent = c
+    ? `${c.client} · ${c.address} · ${c.volume} м³ — все постановки, замены и снятия по этому контейнеру.`
+    : '';
+  const box = document.getElementById('historyTimeline');
+  box.innerHTML = '<div class="journal-empty">Загрузка…</div>';
+  openModal('historyModalBackdrop');
+
+  let docs;
+  try{
+    const snap = await db.collection('journal').where('containerId','==',id).orderBy('ts','asc').get();
+    docs = snap.docs;
+  }catch(e){
+    // возможно, ещё не построен составной индекс в Firestore — берём без сортировки и сортируем на клиенте
+    try{
+      const snap2 = await db.collection('journal').where('containerId','==',id).get();
+      docs = snap2.docs.slice().sort((a,b)=>{
+        const ta = a.data().ts && a.data().ts.toMillis ? a.data().ts.toMillis() : 0;
+        const tb = b.data().ts && b.data().ts.toMillis ? b.data().ts.toMillis() : 0;
+        return ta - tb;
+      });
+    }catch(e2){
+      console.error(e2);
+      box.innerHTML = '<div class="journal-empty">История недоступна. Проверьте правила доступа к коллекции <b>journal</b> в Firebase.</div>';
+      return;
+    }
+  }
+
+  if(!docs || docs.length===0){
+    box.innerHTML = '<div class="journal-empty">По этому контейнеру пока нет записей — история ведётся с недавнего обновления, более старые действия в неё не попали.</div>';
+    return;
+  }
+
+  box.innerHTML = `<ul class="timeline">${docs.map(d=>{
+    const x = d.data();
+    const label = ACTION_LABELS[x.action] || x.action || 'Событие';
+    const logged = formatTs(x.ts);
+    const evDate = x.eventDate ? formatDate(x.eventDate) : null;
+    const dateLine = evDate || logged || '—';
+    const showLogged = evDate && logged && evDate !== logged.split(' ')[0];
+    return `
+      <li class="timeline-item tl-${escapeHtml(x.action||'')}">
+        <span class="timeline-dot"></span>
+        <div class="timeline-head">
+          <span class="timeline-action">${escapeHtml(label)}</span>
+          <span class="timeline-date">${dateLine}</span>
+          ${showLogged ? `<span class="timeline-logged">(записано ${logged})</span>` : ''}
+        </div>
+        <div class="timeline-text">${escapeHtml(x.text||'')}</div>
+        <div class="timeline-actor">Сделал: <b>${escapeHtml(x.actor||'—')}</b></div>
+      </li>`;
+  }).join('')}</ul>`;
 }
 
 /* ============ ВЫГРУЗКА В EXCEL (CSV) ============ */
@@ -1478,7 +1587,7 @@ async function saveContainer(){
         if(before.type!==type) changes.push(`операция → ${type}`);
         if(before.installDate!==installDate) changes.push(`дата постановки → ${formatDate(installDate)}`);
         if((before.removalDate||'')!==(c.removalDate||'') && c.removalDate) changes.push(`дата снятия → ${formatDate(c.removalDate)}`);
-        logEvent('edit', `Изменил ${c.number||'контейнер'} (${volume} м³)${changes.length?': '+changes.join(', '):''}`);
+        logEvent('edit', `Изменил ${c.number||'контейнер'} (${volume} м³)${changes.length?': '+changes.join(', '):''}`, {containerId:c.id, containerNumber:c.number, eventDate:installDate});
         toast(`${c.number || 'Контейнер'} сохранён`, {type:'ok'});
       }
     } else {
@@ -1491,7 +1600,7 @@ async function saveContainer(){
         prevType: null,
       };
       if(await upsertContainerRow(c)){
-        logEvent('add', `Поставил ${number} (${volume} м³) — ${client}, ${address}`);
+        logEvent('add', `Поставил ${number} (${volume} м³) — ${client}, ${address}`, {containerId:c.id, containerNumber:number, eventDate:installDate});
         toast(`${number} поставлен: ${client}`, {type:'ok'});
       }
     }
@@ -1529,7 +1638,7 @@ async function confirmRemove(){
   c.type = 'Снятие';
   c.removalDate = date;
   if(await upsertContainerRow(c)){
-    logEvent('remove', `Снял ${c.number||'контейнер'} (${c.volume} м³) ${formatDate(date)} — ${c.client}, ${c.address}`);
+    logEvent('remove', `Снял ${c.number||'контейнер'} (${c.volume} м³) ${formatDate(date)} — ${c.client}, ${c.address}`, {containerId:c.id, containerNumber:c.number, eventDate:date});
     toast(`${c.number || 'Контейнер'} снят ${formatDate(date)} и вернулся на склад`, {type:'ok'});
   }
   closeModal('removeModalBackdrop');
@@ -1545,7 +1654,7 @@ async function restoreFromHistory(id){
   c.prevType = null;
   c.removalDate = null;
   if(await upsertContainerRow(c)){
-    logEvent('restore', `Вернул в работу ${c.number||'контейнер'} — ${c.client}, ${c.address}`);
+    logEvent('restore', `Вернул в работу ${c.number||'контейнер'} — ${c.client}, ${c.address}`, {containerId:c.id, containerNumber:c.number});
     toast(`${c.number || 'Контейнер'} снова в работе`, {type:'ok'});
     switchTab(c.volume===8 ? 'active8' : 'activeOther');
   }
@@ -1561,12 +1670,12 @@ async function deleteContainer(id){
   const snapshot = { ...c };
   if(await deleteContainerRow(id)){
     lastDeleted = snapshot;
-    logEvent('delete', `Удалил ${c.number||'контейнер'} (${c.volume} м³) — ${c.client}, ${c.address}`);
+    logEvent('delete', `Удалил ${c.number||'контейнер'} (${c.volume} м³) — ${c.client}, ${c.address}`, {containerId:c.id, containerNumber:c.number});
     toast(`${c.number || 'Контейнер'} удалён`, {
       actionLabel:'Отменить',
       onAction: async ()=>{
         if(await upsertContainerRow(lastDeleted)){
-          logEvent('undo', `Восстановил ${lastDeleted.number||'контейнер'}`);
+          logEvent('undo', `Восстановил ${lastDeleted.number||'контейнер'}`, {containerId:lastDeleted.id, containerNumber:lastDeleted.number});
           toast('Удаление отменено', {type:'ok'});
         }
       }
@@ -1644,7 +1753,8 @@ async function confirmReplace(){
   if(await upsertContainerRow(c)){
     logEvent('replace', newVolume!==oldVolume
       ? `Заменил ${c.number||'контейнер'} у ${c.client} ${formatDate(date)} — ${oldVolume} м³ → ${newVolume} м³`
-      : `Заменил ${c.number||'контейнер'} (${newVolume} м³) ${formatDate(date)} — ${c.client}, ${c.address}`);
+      : `Заменил ${c.number||'контейнер'} (${newVolume} м³) ${formatDate(date)} — ${c.client}, ${c.address}`,
+      {containerId:c.id, containerNumber:c.number, eventDate:date});
     toast(`Замена записана ${formatDate(date)}${newVolume!==oldVolume ? `: ${oldVolume} м³ → ${newVolume} м³` : ''}`, {type:'ok'});
   }
   closeModal('replaceModalBackdrop');
@@ -1673,6 +1783,7 @@ document.addEventListener('click', async e=>{
 
   switch(act){
     case 'add':      openAddModal(el.dataset.volume ? parseInt(el.dataset.volume,10) : null); break;
+    case 'history':  openHistoryModal(id); break;
     case 'edit':     openEditModal(id); break;
     case 'replace':  openReplaceModal(id); break;
     case 'remove':   openRemoveModal(id); break;
