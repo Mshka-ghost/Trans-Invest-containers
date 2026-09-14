@@ -293,7 +293,8 @@
   .timeline-item.tl-replace .timeline-dot{background:var(--amber);box-shadow:0 0 0 1px var(--amber);}
   .timeline-item.tl-remove .timeline-dot{background:var(--blue);box-shadow:0 0 0 1px var(--blue);}
   .timeline-item.tl-restore .timeline-dot{background:var(--green);box-shadow:0 0 0 1px var(--green);}
-  .timeline-item.tl-delete .timeline-dot,.timeline-item.tl-undo .timeline-dot{background:var(--red);box-shadow:0 0 0 1px var(--red);}
+  .timeline-item.tl-delete .timeline-dot,.timeline-item.tl-undo .timeline-dot,.timeline-item.tl-scrap .timeline-dot{background:var(--red);box-shadow:0 0 0 1px var(--red);}
+  .timeline-item.tl-unscrap .timeline-dot{background:var(--green);box-shadow:0 0 0 1px var(--green);}
   .timeline-item.tl-edit .timeline-dot{background:var(--grey);box-shadow:0 0 0 1px var(--grey);}
   .timeline-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
   .timeline-action{
@@ -436,7 +437,10 @@
   <div class="yard">
     <div class="yard-head">
       <h2>Склад — наличие по объёмам</h2>
-      <button class="btn btn-amber" data-act="stock">Ввести количество</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-amber" data-act="stock">Ввести количество</button>
+        <button class="btn btn-danger-solid" data-act="scrap">Списать в металлолом</button>
+      </div>
     </div>
     <div class="yard-grid" id="yardGrid"></div>
   </div>
@@ -444,6 +448,7 @@
   <div class="tabs" id="tabs">
     <button class="tab-btn active" data-tab="active8">Активные 8 м³<span class="count" id="cnt-active8">—</span></button>
     <button class="tab-btn" data-tab="activeOther">Активные 20 м³+<span class="count" id="cnt-activeOther">—</span></button>
+    <button class="tab-btn" data-tab="base45">База 45<span class="count" id="cnt-base45">—</span></button>
     <button class="tab-btn" data-tab="history">История<span class="count" id="cnt-history">—</span></button>
     <button class="tab-btn" data-tab="journal">Журнал</button>
   </div>
@@ -520,6 +525,34 @@
     </div>
   </div>
 
+  <!-- BASE 45 TAB -->
+  <div class="tab-panel" id="panel-base45">
+    <div class="summary-bar" id="summaryBarBase45"></div>
+    <div class="controls">
+      <div class="controls-left">
+        <input type="search" id="searchInputBase45" class="search-box" placeholder="Поиск по задаче, месту или номеру…">
+        <select id="volFilterBase45"><option value="Все">Объём: все</option></select>
+        <select id="statusFilterBase45">
+          <option value="Все">Статус: все</option>
+          <option value="В работе">В работе</option>
+          <option value="В простое">В простое</option>
+          <option value="В ремонте">В ремонте</option>
+        </select>
+        <button class="filter-reset" data-act="reset-filters" data-view="base45">Сбросить</button>
+      </div>
+      <div class="controls-right">
+        <button class="btn btn-ghost" data-act="export" data-view="base45">Выгрузить в Excel</button>
+        <button class="btn btn-primary" data-act="add-base">+ Добавить на базу 45</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr id="head-base45"></tr></thead>
+        <tbody id="body-base45"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- HISTORY TAB -->
   <div class="tab-panel" id="panel-history">
     <div class="controls">
@@ -585,14 +618,21 @@
       <select id="f-volume"></select>
       <div class="field-note" id="volumeNote"></div>
     </div>
+    <div class="field">
+      <label for="f-location">Расположение</label>
+      <select id="f-location">
+        <option value="client">У клиента</option>
+        <option value="base45">На базе 45 (внутренняя задача)</option>
+      </select>
+    </div>
     <div class="field" id="fld-client">
-      <label for="f-client">Клиент</label>
+      <label for="f-client" id="lbl-client">Клиент</label>
       <input type="text" id="f-client" placeholder="Название клиента" list="clientList" autocomplete="off">
       <datalist id="clientList"></datalist>
       <div class="err">Укажите клиента</div>
     </div>
     <div class="field" id="fld-address">
-      <label for="f-address">Адрес</label>
+      <label for="f-address" id="lbl-address">Адрес</label>
       <input type="text" id="f-address" placeholder="Адрес объекта" list="addressList" autocomplete="off">
       <datalist id="addressList"></datalist>
       <div class="err">Укажите адрес</div>
@@ -684,6 +724,20 @@
   </div>
 </div>
 
+<!-- Scrap (write-off) modal -->
+<div class="modal-backdrop" id="scrapModalBackdrop">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>Списать в металлолом</h3>
+    <p class="hint">Сколько контейнеров каждого объёма всего списано в металлолом на сегодня. Эти штуки не будут числиться свободными на складе.</p>
+    <div class="qty-grid" id="scrapQtyGrid"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-act="close" data-modal="scrapModalBackdrop">Отмена</button>
+      <button class="btn btn-danger-solid" data-act="save-scrap">Сохранить</button>
+    </div>
+  </div>
+</div>
+</div>
+
 <!-- Actor modal -->
 <div class="modal-backdrop" id="actorModalBackdrop">
   <div class="modal" role="dialog" aria-modal="true">
@@ -738,7 +792,7 @@
      journal/{auto}    = {ts, actor, action, text}   ← новая, необязательная
    ============================================================ */
 
-const VOLUMES = [8,16,20,25,27,36,38];
+const VOLUMES = [8,16,20,25,27,30,36,38];
 const SMALL = [8];
 const BIG = VOLUMES.filter(v=>v!==8);
 const HIST_PAGE = 50;
@@ -761,13 +815,15 @@ db.enablePersistence({ synchronizeTabs:true }).catch(()=>{ /* несколько
 let containers = [];
 let stock = {};
 VOLUMES.forEach(v=>stock[v]=0);
+let scrapStock = {};
+VOLUMES.forEach(v=>scrapStock[v]=0);
 let replaceTargetId = null;
 let removeTargetId = null;
 let lastDeleted = null;
 let currentTab = 'active8';
 let dayStamp = '';
 
-let ready = { containers:false, stock:false };
+let ready = { containers:false, stock:false, scrap:false };
 let fromCache = false;
 
 /* ============ ЖУРНАЛ: кто работает ============ */
@@ -890,6 +946,16 @@ async function syncStock(){
     return false;
   }
 }
+async function syncScrapStock(){
+  try{
+    await Promise.all(VOLUMES.map(v=>db.collection('scrap').doc(String(v)).set({ qty: scrapStock[v]||0 })));
+    return true;
+  } catch(e){
+    toast('Не удалось сохранить списание: '+e.message, {type:'err', ms:7000});
+    console.error(e);
+    return false;
+  }
+}
 /* Номер выдаётся транзакцией: два человека одновременно не получат одинаковый К-XXXX. */
 async function allocateNumber(){
   const ref = db.collection('meta').doc('counter');
@@ -936,8 +1002,19 @@ db.collection('stock').onSnapshot(snap=>{
   console.error(err);
 });
 
+db.collection('scrap').onSnapshot(snap=>{
+  const s = {}; VOLUMES.forEach(v=>s[v]=0);
+  snap.docs.forEach(d=>{ s[parseInt(d.id,10)] = d.data().qty || 0; });
+  scrapStock = s;
+  ready.scrap = true;
+  maybeRender();
+}, err=>{
+  setFooterStatus('Ошибка подключения к базе данных. Проверьте интернет и настройки Firebase.', true);
+  console.error(err);
+});
+
 function maybeRender(){
-  if(ready.containers && ready.stock){
+  if(ready.containers && ready.stock && ready.scrap){
     setFooterStatus('Общая база данных · изменения видны всем сотрудникам в реальном времени');
     renderAll();
   }
@@ -969,6 +1046,9 @@ function plural(n, one, few, many){
   return many;
 }
 function isHistory(c){ return c.type === 'Снятие'; }
+function isOnBase(c){ return c.location === 'base45'; }
+/* "Активен" = не в истории склада (списание теперь считается по количеству, не по контейнеру) */
+function isActive(c){ return !isHistory(c); }
 function badgeClass(status){
   if(status==='В работе') return 'badge-working';
   if(status==='В ремонте') return 'badge-repair';
@@ -982,18 +1062,23 @@ function debounce(fn, ms){
   let t; return function(){ clearTimeout(t); t = setTimeout(()=>fn.apply(this, arguments), ms); };
 }
 
-/* Занято = стоит у клиента в работе + в ремонте. Свободно = куплено минус занято. */
+/* Занято = стоит у клиента в работе/ремонте, работает на своей базе, или списано (по количеству).
+   Идле у клиента (В простое) в расчёт "занято" не входит — так было и раньше. */
 function occupiedForVolume(v){
-  const active = containers.filter(c=>!isHistory(c) && c.volume===v);
+  const active = containers.filter(c=>isActive(c) && c.volume===v);
+  const clientRows = active.filter(c=>!isOnBase(c));
+  const baseRows = active.filter(isOnBase);
   return {
-    working: active.filter(c=>c.status==='В работе').length,
-    repair:  active.filter(c=>c.status==='В ремонте').length,
-    idle:    active.filter(c=>c.status==='В простое').length,
+    working: clientRows.filter(c=>c.status==='В работе').length,
+    repair:  clientRows.filter(c=>c.status==='В ремонте').length,
+    idle:    clientRows.filter(c=>c.status==='В простое').length,
+    base:    baseRows.length,
+    scrapped: scrapStock[v]||0,
   };
 }
 function rawFreeForVolume(v){
   const o = occupiedForVolume(v);
-  return (stock[v]||0) - o.working - o.repair;
+  return (stock[v]||0) - o.working - o.repair - o.base - o.scrapped;
 }
 function freeForVolume(v){ return Math.max(0, rawFreeForVolume(v)); }
 
@@ -1033,6 +1118,8 @@ function renderYard(){
           <span>В работе — <b>${o.working}</b></span>
           <span>На складе — <b>${free}</b></span>
           <span>В ремонте — <b>${o.repair}</b></span>
+          ${o.base ? `<span>На базе 45 — <b>${o.base}</b></span>` : ''}
+          ${o.scrapped ? `<span>Списано — <b>${o.scrapped}</b></span>` : ''}
         </div>
         ${rawFree<0 ? `<div class="overuse">Перерасход на ${Math.abs(rawFree)} — проверьте общее количество</div>` : ''}
       </div>`;
@@ -1041,12 +1128,14 @@ function renderYard(){
 
 /* ============ ИТОГОВЫЕ ПЛАШКИ ============ */
 function renderSummaryBar(elId, volumeList){
-  const active = containers.filter(c=>!isHistory(c) && volumeList.includes(c.volume));
+  const active = containers.filter(c=>isActive(c) && volumeList.includes(c.volume) && !isOnBase(c));
   const working = active.filter(c=>c.status==='В работе').length;
   const repair  = active.filter(c=>c.status==='В ремонте').length;
   const idle    = active.filter(c=>c.status==='В простое').length;
+  const base    = containers.filter(c=>isActive(c) && volumeList.includes(c.volume) && isOnBase(c)).length;
+  const scrapped= volumeList.reduce((s,v)=> s + (scrapStock[v]||0), 0);
   const total   = volumeList.reduce((s,v)=> s + (stock[v]||0), 0);
-  const rawFree = total - working - repair;
+  const rawFree = total - working - repair - base - scrapped;
   const attention = active.filter(c=>{ const h = highlightFor(c); return h.red || h.orange; }).length;
 
   document.getElementById(elId).innerHTML = `
@@ -1054,6 +1143,8 @@ function renderSummaryBar(elId, volumeList){
     <div class="summary-chip">На складе <b>${Math.max(0,rawFree)}</b></div>
     <div class="summary-chip">В простое <b>${idle}</b></div>
     <div class="summary-chip">В ремонте <b>${repair}</b></div>
+    ${base ? `<div class="summary-chip">На базе 45 <b>${base}</b></div>` : ''}
+    ${scrapped ? `<div class="summary-chip">Списано <b>${scrapped}</b></div>` : ''}
     <div class="summary-chip total">Всего контейнеров <b>${total}</b></div>
     ${attention ? `<div class="summary-chip warn">Требуют внимания <b>${attention}</b></div>` : ''}
     ${rawFree<0 ? `<div class="summary-chip warn">Перерасход <b>${Math.abs(rawFree)}</b></div>` : ''}
@@ -1085,10 +1176,21 @@ const HIST_COLS = [
   { key:'type',       label:'Операция',   sort:null },
   { key:'restore',    label:'Действия',   sort:null },
 ];
-
+const BASE_COLS = [
+  { key:'idx',        label:'№',            sort:null },
+  { key:'number',     label:'Номер',        sort:'number' },
+  { key:'volume',     label:'Объём',        sort:'volume' },
+  { key:'client',     label:'Задача',       sort:'client' },
+  { key:'address',    label:'Место на базе',sort:'address' },
+  { key:'status',     label:'Статус',       sort:'status' },
+  { key:'installDate',label:'С какого числа',sort:'installDate' },
+  { key:'days',       label:'Дней',         sort:'days' },
+  { key:'actions',    label:'Действия',     sort:null },
+];
 const sortState = {
   'active8':    { key:'installDate', dir:-1 },
   'activeOther':{ key:'installDate', dir:-1 },
+  'base45':     { key:'installDate', dir:-1 },
   'hist8':      { key:'removalDate', dir:-1 },
   'histOther':  { key:'removalDate', dir:-1 },
 };
@@ -1131,7 +1233,7 @@ function activeRowsFor(viewKey){
   const typeF   = document.getElementById(v.type).value;
   const flagF   = document.getElementById(v.flag).value;
 
-  let rows = containers.filter(c=>!isHistory(c) && v.volumes.includes(c.volume));
+  let rows = containers.filter(c=>isActive(c) && !isOnBase(c) && v.volumes.includes(c.volume));
   if(search){
     rows = rows.filter(c =>
       (c.client||'').toLowerCase().includes(search) ||
@@ -1149,7 +1251,7 @@ function renderActive(viewKey){
   renderSummaryBar(v.summary, v.volumes);
   buildHead(v.head, ACTIVE_COLS, viewKey);
 
-  const all = containers.filter(c=>!isHistory(c) && v.volumes.includes(c.volume));
+  const all = containers.filter(c=>isActive(c) && !isOnBase(c) && v.volumes.includes(c.volume));
   document.getElementById(v.count).textContent = all.length;
 
   const rows = activeRowsFor(viewKey);
@@ -1258,6 +1360,73 @@ function renderHistoryInto(sortKey, volumes, bodyId, moreId, countId){
     </tr>`).join('');
 }
 
+/* ============ БАЗА 45 (внутренние задачи на своей территории) ============ */
+function base45Rows(){
+  const search  = (document.getElementById('searchInputBase45').value||'').toLowerCase().trim();
+  const volF    = document.getElementById('volFilterBase45').value;
+  const statusF = document.getElementById('statusFilterBase45').value;
+
+  let rows = containers.filter(c=>isActive(c) && isOnBase(c));
+  if(volF !== 'Все') rows = rows.filter(c=>String(c.volume)===volF);
+  if(statusF !== 'Все') rows = rows.filter(c=>c.status===statusF);
+  if(search){
+    rows = rows.filter(c =>
+      (c.client||'').toLowerCase().includes(search) ||
+      (c.address||'').toLowerCase().includes(search) ||
+      (c.number||'').toLowerCase().includes(search));
+  }
+  return sortRows(rows, 'base45');
+}
+
+function renderBase45(){
+  buildHead('head-base45', BASE_COLS, 'base45');
+  const all = containers.filter(c=>isActive(c) && isOnBase(c));
+  document.getElementById('cnt-base45').textContent = all.length;
+
+  const working = all.filter(c=>c.status==='В работе').length;
+  const repair  = all.filter(c=>c.status==='В ремонте').length;
+  const idle    = all.filter(c=>c.status==='В простое').length;
+  document.getElementById('summaryBarBase45').innerHTML = `
+    <div class="summary-chip">В работе <b>${working}</b></div>
+    <div class="summary-chip">В простое <b>${idle}</b></div>
+    <div class="summary-chip">В ремонте <b>${repair}</b></div>
+    <div class="summary-chip total">Всего на базе 45 <b>${all.length}</b></div>
+  `;
+
+  const rows = base45Rows();
+  const tbody = document.getElementById('body-base45');
+  if(rows.length===0){
+    const hasAny = all.length > 0;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="${BASE_COLS.length}">
+      <span class="empty-title">${hasAny ? 'Ничего не найдено' : 'Пока пусто'}</span>
+      ${hasAny ? 'Измените фильтры или очистите поиск.' : 'Контейнеры для внутренних задач на базе 45 появятся здесь.'}
+    </td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((c,i)=>{
+    const d = daysSince(c.installDate);
+    return `
+      <tr>
+        <td data-label="№" class="mono">${i+1}</td>
+        <td data-label="Номер" class="mono">${escapeHtml(c.number||'—')}</td>
+        <td data-label="Объём" class="mono">${escapeHtml(String(c.volume))} м³</td>
+        <td data-label="Задача">${escapeHtml(c.client)}</td>
+        <td data-label="Место на базе">${escapeHtml(c.address)}</td>
+        <td data-label="Статус"><span class="badge ${badgeClass(c.status)}">${escapeHtml(c.status)}</span></td>
+        <td data-label="С какого числа" class="mono">${formatDate(c.installDate)}</td>
+        <td data-label="Дней" class="days-num">${d}</td>
+        <td data-label="Действия">
+          <div class="row-actions">
+            <button class="btn btn-ghost btn-sm" data-act="history" data-id="${c.id}" title="История контейнера">История</button>
+            <button class="btn btn-ghost btn-sm" data-act="edit" data-id="${c.id}">Ред.</button>
+            <button class="btn btn-steel btn-sm" data-act="remove" data-id="${c.id}">Снятие</button>
+            <button class="btn btn-danger btn-sm" data-act="delete" data-id="${c.id}">Удал.</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
 /* ============ ЖУРНАЛ ============ */
 let journalLoaded = false;
 async function loadJournal(force){
@@ -1291,7 +1460,8 @@ async function loadJournal(force){
 
 const ACTION_LABELS = {
   add:'Постановка', edit:'Правка', replace:'Замена', remove:'Снятие',
-  restore:'Возврат в работу', delete:'Удаление', undo:'Восстановление', stock:'Склад'
+  restore:'Возврат в работу', delete:'Удаление', undo:'Восстановление', stock:'Склад',
+  scrap:'Списание'
 };
 function formatTs(ts){
   const t = ts && ts.toDate ? ts.toDate() : null;
@@ -1381,6 +1551,12 @@ function doExport(viewKey){
       ['Номер','Объём, м³','Клиент','Адрес','Установлен','Снят','Операция'], rows);
     return;
   }
+  if(viewKey==='base45'){
+    const rows = base45Rows().map(c=>[c.number||'', c.volume, c.client, c.address, c.status, formatDate(c.installDate), daysSince(c.installDate)]);
+    exportCSV(`база-45-${stampName}.csv`,
+      ['Номер','Объём, м³','Задача','Место на базе','Статус','С какого числа','Дней'], rows);
+    return;
+  }
   const rows = activeRowsFor(viewKey).map(c=>{
     const h = highlightFor(c);
     return [c.number||'', c.volume, c.client, c.address, c.status, c.type, formatDate(c.installDate), h.days, h.reminderText];
@@ -1395,6 +1571,7 @@ function renderAll(){
   renderYard();
   renderActive('active8');
   renderActive('activeOther');
+  renderBase45();
   renderHistory();
   refreshDatalists();
 }
@@ -1465,8 +1642,16 @@ function toggleRemovalField(){
     document.getElementById('f-removalDate').value = todayISO();
   }
 }
+/* Меняем подписи полей в зависимости от расположения: у клиента / на базе 45 */
+function toggleLocationField(){
+  const isBase = document.getElementById('f-location').value === 'base45';
+  document.getElementById('lbl-client').textContent = isBase ? 'Задача' : 'Клиент';
+  document.getElementById('f-client').placeholder = isBase ? 'Например: хранение стройматериалов' : 'Название клиента';
+  document.getElementById('lbl-address').textContent = isBase ? 'Место на базе (необязательно)' : 'Адрес';
+  document.getElementById('f-address').placeholder = isBase ? 'Например: площадка №3' : 'Адрес объекта';
+}
 
-function openAddModal(preVolume){
+function openAddModal(preVolume, preLocation){
   clearFieldErrors();
   editOriginalVolume = null;
   document.getElementById('containerModalTitle').textContent = 'Добавить контейнер';
@@ -1474,6 +1659,7 @@ function openAddModal(preVolume){
   const volSel = document.getElementById('f-volume');
   fillVolumeSelect(volSel, preVolume || VOLUMES[0]);
   volSel.disabled = false;
+  document.getElementById('f-location').value = preLocation || 'client';
   document.getElementById('f-client').value = '';
   document.getElementById('f-address').value = '';
   document.getElementById('f-installDate').value = todayISO();
@@ -1484,6 +1670,7 @@ function openAddModal(preVolume){
   document.getElementById('f-type').value = 'Постановка';
   updateVolumeNote();
   toggleRemovalField();
+  toggleLocationField();
   openModal('containerModalBackdrop');
   document.getElementById('f-client').focus();
 }
@@ -1498,6 +1685,7 @@ function openEditModal(id){
   fillVolumeSelect(volSel, c.volume);
   volSel.value = c.volume;
   volSel.disabled = false;             // объём можно исправить: 20 → 27 и т.д.
+  document.getElementById('f-location').value = c.location==='base45' ? 'base45' : 'client';
   document.getElementById('f-client').value = c.client||'';
   document.getElementById('f-address').value = c.address||'';
   document.getElementById('f-installDate').value = c.installDate || todayISO();
@@ -1508,6 +1696,7 @@ function openEditModal(id){
   document.getElementById('f-type').value = c.type;
   updateVolumeNote();
   toggleRemovalField();
+  toggleLocationField();
   openModal('containerModalBackdrop');
   document.getElementById('f-client').focus();
 }
@@ -1522,11 +1711,12 @@ async function saveContainer(){
   const removalDate = document.getElementById('f-removalDate').value;
   const status = document.getElementById('f-status').value;
   const type = document.getElementById('f-type').value;
+  const location = document.getElementById('f-location').value === 'base45' ? 'base45' : 'client';
 
   clearFieldErrors();
   let bad = false;
   if(!client){ document.getElementById('fld-client').classList.add('invalid'); bad = true; }
-  if(!address){ document.getElementById('fld-address').classList.add('invalid'); bad = true; }
+  if(!address && location==='client'){ document.getElementById('fld-address').classList.add('invalid'); bad = true; }
   if(!installDate){ document.getElementById('fld-date').classList.add('invalid'); bad = true; }
   if(type==='Снятие' && !removalDate){ document.getElementById('fld-removalDate').classList.add('invalid'); bad = true; }
   if(bad) return;
@@ -1546,15 +1736,17 @@ async function saveContainer(){
   }
 
   if(!id){
-    // дубликат на том же адресе
-    const dup = containers.find(c=>!isHistory(c) && c.volume===volume &&
-      (c.client||'').toLowerCase()===client.toLowerCase() &&
-      (c.address||'').toLowerCase()===address.toLowerCase());
-    if(dup){
-      const go = await askConfirm('Похоже на дубль',
-        `У клиента «${client}» по адресу «${address}» уже стоит контейнер ${volume} м³ (${dup.number||'без номера'}). Всё равно добавить ещё один?`,
-        'Добавить');
-      if(!go) return;
+    // дубликат на том же адресе — только для клиентских объектов, у "базы 45" адрес часто пустой
+    if(location==='client'){
+      const dup = containers.find(c=>isActive(c) && c.volume===volume && c.location!=='base45' &&
+        (c.client||'').toLowerCase()===client.toLowerCase() &&
+        (c.address||'').toLowerCase()===address.toLowerCase());
+      if(dup){
+        const go = await askConfirm('Похоже на дубль',
+          `У клиента «${client}» по адресу «${address}» уже стоит контейнер ${volume} м³ (${dup.number||'без номера'}). Всё равно добавить ещё один?`,
+          'Добавить');
+        if(!go) return;
+      }
     }
     if(type !== 'Снятие' && freeForVolume(volume) <= 0){
       const go = await askConfirm('Нет свободных на складе',
@@ -1571,7 +1763,7 @@ async function saveContainer(){
       c = containers.find(x=>x.id===id);
       if(!c) return;
       const before = { client:c.client, address:c.address, status:c.status, type:c.type,
-                       installDate:c.installDate, removalDate:c.removalDate, volume:c.volume };
+                       installDate:c.installDate, removalDate:c.removalDate, volume:c.volume, location:c.location||'client' };
 
       if(type === 'Снятие'){
         if(before.type !== 'Снятие') c.prevType = before.type;
@@ -1581,7 +1773,7 @@ async function saveContainer(){
       }
       c.volume = volume;
       c.client = client; c.address = address; c.installDate = installDate;
-      c.status = status; c.type = type;
+      c.status = status; c.type = type; c.location = location;
 
       if(await upsertContainerRow(c)){
         const changes = [];
@@ -1590,6 +1782,7 @@ async function saveContainer(){
         if(before.address!==address) changes.push(`адрес → ${address}`);
         if(before.status!==status) changes.push(`статус → ${status}`);
         if(before.type!==type) changes.push(`операция → ${type}`);
+        if(before.location!==location) changes.push(`расположение → ${location==='base45'?'база 45':'у клиента'}`);
         if(before.installDate!==installDate) changes.push(`дата постановки → ${formatDate(installDate)}`);
         if((before.removalDate||'')!==(c.removalDate||'') && c.removalDate) changes.push(`дата снятия → ${formatDate(c.removalDate)}`);
         logEvent('edit', `Изменил ${c.number||'контейнер'} (${volume} м³)${changes.length?': '+changes.join(', '):''}`, {containerId:c.id, containerNumber:c.number, eventDate:installDate});
@@ -1599,13 +1792,13 @@ async function saveContainer(){
       const number = await allocateNumber();
       c = {
         id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random().toString(36).slice(2)),
-        number, volume, client, address, status, type,
+        number, volume, client, address, status, type, location,
         installDate,
         removalDate: type==='Снятие' ? todayISO() : null,
         prevType: null,
       };
       if(await upsertContainerRow(c)){
-        logEvent('add', `Поставил ${number} (${volume} м³) — ${client}, ${address}`, {containerId:c.id, containerNumber:number, eventDate:installDate});
+        logEvent('add', `Поставил ${number} (${volume} м³)${location==='base45'?' на базе 45':''} — ${client}${address?', '+address:''}`, {containerId:c.id, containerNumber:number, eventDate:installDate});
         toast(`${number} поставлен: ${client}`, {type:'ok'});
       }
     }
@@ -1617,7 +1810,7 @@ async function saveContainer(){
 
 function openRemoveModal(id){
   const c = containers.find(x=>x.id===id);
-  if(!c || isHistory(c)) return;
+  if(!c || !isActive(c)) return;
   removeTargetId = id;
   document.getElementById('fld-remove-date').classList.remove('invalid');
   document.getElementById('removeInfo').textContent =
@@ -1661,8 +1854,34 @@ async function restoreFromHistory(id){
   if(await upsertContainerRow(c)){
     logEvent('restore', `Вернул в работу ${c.number||'контейнер'} — ${c.client}, ${c.address}`, {containerId:c.id, containerNumber:c.number});
     toast(`${c.number || 'Контейнер'} снова в работе`, {type:'ok'});
-    switchTab(c.volume===8 ? 'active8' : 'activeOther');
+    switchTab(isOnBase(c) ? 'base45' : (c.volume===8 ? 'active8' : 'activeOther'));
   }
+}
+
+/* ============ СПИСАНИЕ В МЕТАЛЛОЛОМ (по количеству, как склад) ============ */
+function openScrapModal(){
+  document.getElementById('scrapQtyGrid').innerHTML = VOLUMES.map(v=>`
+    <div class="field">
+      <label for="scrap-input-${v}">${v} м³</label>
+      <input type="number" min="0" step="1" id="scrap-input-${v}" value="${scrapStock[v]||0}">
+    </div>`).join('');
+  openModal('scrapModalBackdrop');
+  const first = document.getElementById('scrap-input-'+VOLUMES[0]);
+  if(first){ first.focus(); first.select(); }
+}
+async function saveScrapStock(){
+  const before = { ...scrapStock };
+  VOLUMES.forEach(v=>{
+    const val = parseInt(document.getElementById('scrap-input-'+v).value,10);
+    scrapStock[v] = (isNaN(val) || val<0) ? 0 : val;
+  });
+  if(await syncScrapStock()){
+    const changed = VOLUMES.filter(v=>before[v]!==scrapStock[v]).map(v=>`${v} м³: ${before[v]||0} → ${scrapStock[v]}`);
+    if(changed.length) logEvent('scrap', 'Изменил количество списанных в металлолом — ' + changed.join('; '));
+    toast('Списание сохранено', {type:'ok'});
+  }
+  closeModal('scrapModalBackdrop');
+  renderAll();
 }
 
 async function deleteContainer(id){
@@ -1772,7 +1991,9 @@ document.addEventListener('click', async e=>{
     const key = sortTh.dataset.sort, table = sortTh.dataset.table;
     const st = sortState[table];
     if(st.key === key) st.dir = -st.dir; else { st.key = key; st.dir = (key==='installDate'||key==='removalDate') ? -1 : 1; }
-    if(table.startsWith('hist')) renderHistory(); else renderActive(table);
+    if(table.startsWith('hist')) renderHistory();
+    else if(table==='base45') renderBase45();
+    else renderActive(table);
     return;
   }
 
@@ -1788,12 +2009,15 @@ document.addEventListener('click', async e=>{
 
   switch(act){
     case 'add':      openAddModal(el.dataset.volume ? parseInt(el.dataset.volume,10) : null); break;
+    case 'add-base': openAddModal(null, 'base45'); break;
     case 'history':  openHistoryModal(id); break;
     case 'edit':     openEditModal(id); break;
     case 'replace':  openReplaceModal(id); break;
     case 'remove':   openRemoveModal(id); break;
     case 'confirm-remove': confirmRemove(); break;
     case 'restore':  restoreFromHistory(id); break;
+    case 'scrap':    openScrapModal(); break;
+    case 'save-scrap': saveScrapStock(); break;
     case 'delete':   deleteContainer(id); break;
     case 'stock':    openStockModal(); break;
     case 'save-container': saveContainer(); break;
@@ -1818,6 +2042,11 @@ document.addEventListener('click', async e=>{
         document.getElementById('volFilterHist').value = 'Все';
         histShown.hist8 = HIST_PAGE; histShown.histOther = HIST_PAGE;
         renderHistory();
+      } else if(view==='base45'){
+        document.getElementById('searchInputBase45').value = '';
+        document.getElementById('volFilterBase45').value = 'Все';
+        document.getElementById('statusFilterBase45').value = 'Все';
+        renderBase45();
       } else {
         const v = VIEWS[view];
         document.getElementById(v.search).value = '';
@@ -1848,8 +2077,13 @@ document.getElementById('actorChip').addEventListener('click', ()=>{
 ['volFilterHist','histFrom','histTo'].forEach(id=>document.getElementById(id).addEventListener('change', ()=>{
   histShown.hist8 = HIST_PAGE; histShown.histOther = HIST_PAGE; renderHistory();
 }));
+// фильтры базы 45
+document.getElementById('searchInputBase45').addEventListener('input', debounce(renderBase45,140));
+['volFilterBase45','statusFilterBase45'].forEach(id=>document.getElementById(id).addEventListener('change', renderBase45));
+
 document.getElementById('f-volume').addEventListener('change', updateVolumeNote);
 document.getElementById('f-type').addEventListener('change', toggleRemovalField);
+document.getElementById('f-location').addEventListener('change', toggleLocationField);
 
 // закрытие модалок по клику на фон
 document.querySelectorAll('.modal-backdrop').forEach(bd=>{
@@ -1880,9 +2114,10 @@ document.addEventListener('keydown', e=>{
     const box = document.querySelector('.tab-panel.active .search-box');
     if(box) box.focus();
   }
-  if((e.key === 'n' || e.key === 'т') && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && (currentTab==='active8'||currentTab==='activeOther')){
+  if((e.key === 'n' || e.key === 'т') && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && (currentTab==='active8'||currentTab==='activeOther'||currentTab==='base45')){
     e.preventDefault();
-    openAddModal(currentTab==='active8' ? 8 : 20);
+    if(currentTab==='base45') openAddModal(null,'base45');
+    else openAddModal(currentTab==='active8' ? 8 : 20);
   }
 });
 
@@ -1892,12 +2127,14 @@ function refreshDayStamp(){
   if(t === dayStamp) return;
   dayStamp = t;
   document.getElementById('todayStamp').textContent = 'Сегодня: ' + formatDate(t);
-  if(ready.containers && ready.stock) renderAll();   // «дней без движения» пересчитается
+  if(ready.containers && ready.stock && ready.scrap) renderAll();   // «дней без движения» пересчитается
 }
 setInterval(refreshDayStamp, 60000);
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) refreshDayStamp(); });
 
 document.getElementById('volFilterHist').innerHTML =
+  '<option value="Все">Объём: все</option>' + VOLUMES.map(v=>`<option value="${v}">${v} м³</option>`).join('');
+document.getElementById('volFilterBase45').innerHTML =
   '<option value="Все">Объём: все</option>' + VOLUMES.map(v=>`<option value="${v}">${v} м³</option>`).join('');
 
 document.getElementById('yardGrid').innerHTML =
