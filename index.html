@@ -422,6 +422,9 @@
       <div class="sub">Склад, активные объекты, история и клиенты — в реальном времени</div>
     </div>
     <div class="topbar-side">
+      <button class="actor-chip" id="modeChip" type="button" title="Переключить режим просмотра">
+        <span class="actor-dot" style="background:var(--amber);"></span><span id="modeLabel">Режим: —</span>
+      </button>
       <button class="actor-chip unset" id="actorChip" type="button">
         <span class="actor-dot"></span><span id="actorLabel">Кто работает?</span>
       </button>
@@ -447,7 +450,7 @@
 
   <div class="tabs" id="tabs">
     <button class="tab-btn active" data-tab="active8">Активные 8 м³<span class="count" id="cnt-active8">—</span></button>
-    <button class="tab-btn" data-tab="activeOther">Активные 20 м³+<span class="count" id="cnt-activeOther">—</span></button>
+    <button class="tab-btn" data-tab="activeOther">Активные 16 м³+<span class="count" id="cnt-activeOther">—</span></button>
     <button class="tab-btn" data-tab="base45">База 45<span class="count" id="cnt-base45">—</span></button>
     <button class="tab-btn" data-tab="history">История<span class="count" id="cnt-history">—</span></button>
     <button class="tab-btn" data-tab="journal">Журнал</button>
@@ -514,7 +517,7 @@
       </div>
       <div class="controls-right">
         <button class="btn btn-ghost" data-act="export" data-view="activeOther">Выгрузить в Excel</button>
-        <button class="btn btn-primary" data-act="add" data-volume="20">+ Добавить контейнер</button>
+        <button class="btn btn-primary" data-act="add" data-volume="16">+ Добавить контейнер</button>
       </div>
     </div>
     <div class="table-scroll">
@@ -572,23 +575,27 @@
       </div>
     </div>
 
-    <h3 class="section-title">Контейнеры 8 м³ <span class="count" id="histCount8"></span></h3>
-    <div class="table-scroll">
-      <table class="data-table">
-        <thead><tr id="head-hist8"></tr></thead>
-        <tbody id="body-hist8"></tbody>
-      </table>
+    <div id="histBlock8">
+      <h3 class="section-title">Контейнеры 8 м³ <span class="count" id="histCount8"></span></h3>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr id="head-hist8"></tr></thead>
+          <tbody id="body-hist8"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-ghost load-more" id="more-hist8" style="display:none;">Показать ещё</button>
     </div>
-    <button class="btn btn-ghost load-more" id="more-hist8" style="display:none;">Показать ещё</button>
 
-    <h3 class="section-title">Контейнеры 20 м³+ <span class="count" id="histCountOther"></span></h3>
-    <div class="table-scroll">
-      <table class="data-table">
-        <thead><tr id="head-histOther"></tr></thead>
-        <tbody id="body-histOther"></tbody>
-      </table>
+    <div id="histBlockOther">
+      <h3 class="section-title">Контейнеры 16 м³+ <span class="count" id="histCountOther"></span></h3>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr id="head-histOther"></tr></thead>
+          <tbody id="body-histOther"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-ghost load-more" id="more-histOther" style="display:none;">Показать ещё</button>
     </div>
-    <button class="btn btn-ghost load-more" id="more-histOther" style="display:none;">Показать ещё</button>
   </div>
 
   <!-- JOURNAL TAB -->
@@ -736,6 +743,22 @@
     </div>
   </div>
 </div>
+
+<!-- Admin password modal (guards deletion) -->
+<div class="modal-backdrop" id="adminModalBackdrop">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>Только для администратора</h3>
+    <p class="hint">Удаление контейнеров защищено паролем. Введите пароль, чтобы продолжить — на этом устройстве спросим один раз за сессию.</p>
+    <div class="field" id="fld-admin-password">
+      <label for="f-admin-password">Пароль</label>
+      <input type="password" id="f-admin-password" autocomplete="off">
+      <div class="err">Неверный пароль</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-act="close" data-modal="adminModalBackdrop">Отмена</button>
+      <button class="btn btn-danger-solid" data-act="submit-admin-password">Подтвердить</button>
+    </div>
+  </div>
 </div>
 
 <!-- Actor modal -->
@@ -750,6 +773,21 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" data-act="close" data-modal="actorModalBackdrop">Отмена</button>
       <button class="btn btn-primary" data-act="save-actor">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Volume mode select modal -->
+<div class="modal-backdrop" id="modeModalBackdrop">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>Какие контейнеры показывать?</h3>
+    <p class="hint">Чтобы не путаться, сайт показывает только одну группу за раз. Переключить можно в любой момент кнопкой в шапке.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px;">
+      <button class="btn btn-primary" style="padding:16px;font-size:15px;" data-act="pick-mode" data-mode="8">8 м³</button>
+      <button class="btn btn-primary" style="padding:16px;font-size:15px;" data-act="pick-mode" data-mode="big">16 м³ и больше</button>
+    </div>
+    <div class="modal-actions" id="modeCancelWrap" style="display:none;">
+      <button class="btn btn-ghost" data-act="close" data-modal="modeModalBackdrop">Отмена</button>
     </div>
   </div>
 </div>
@@ -795,6 +833,11 @@
 const VOLUMES = [8,16,20,25,27,30,36,38];
 const SMALL = [8];
 const BIG = VOLUMES.filter(v=>v!==8);
+
+/* Режим просмотра: сайт показывает только одну группу объёмов за раз,
+   чтобы не путать 8 м³ (бытовки) с 16 м³+ (бункеры). Хранится на устройстве. */
+let volumeMode = localStorage.getItem('ti_volume_mode'); // '8' | 'big' | null
+function currentVolumes(){ return volumeMode==='8' ? SMALL : (volumeMode==='big' ? BIG : VOLUMES); }
 const HIST_PAGE = 50;
 
 const firebaseConfig = {
@@ -837,6 +880,39 @@ function renderActorChip(){
   const chip = document.getElementById('actorChip');
   document.getElementById('actorLabel').textContent = name || 'Кто работает?';
   chip.classList.toggle('unset', !name);
+}
+
+/* ============ РЕЖИМ ПРОСМОТРА: 8 м³ / 16 м³+ ============ */
+function renderModeChip(){
+  document.getElementById('modeLabel').textContent =
+    volumeMode==='8' ? 'Режим: 8 м³' : (volumeMode==='big' ? 'Режим: 16 м³+' : 'Режим: —');
+}
+function applyVolumeMode(){
+  renderModeChip();
+  const show8 = volumeMode !== 'big';
+  const showBig = volumeMode !== '8';
+  const tab8 = document.querySelector('.tab-btn[data-tab="active8"]');
+  const tabBig = document.querySelector('.tab-btn[data-tab="activeOther"]');
+  if(tab8) tab8.style.display = show8 ? '' : 'none';
+  if(tabBig) tabBig.style.display = showBig ? '' : 'none';
+  const histBlock8 = document.getElementById('histBlock8');
+  const histBlockOther = document.getElementById('histBlockOther');
+  if(histBlock8) histBlock8.style.display = show8 ? '' : 'none';
+  if(histBlockOther) histBlockOther.style.display = showBig ? '' : 'none';
+  document.getElementById('volFilterHist').innerHTML =
+    '<option value="Все">Объём: все</option>' + currentVolumes().map(v=>`<option value="${v}">${v} м³</option>`).join('');
+  document.getElementById('volFilterBase45').innerHTML =
+    '<option value="Все">Объём: все</option>' + currentVolumes().map(v=>`<option value="${v}">${v} м³</option>`).join('');
+  // если сейчас открыта скрытая вкладка — переключаемся на видимую
+  if(currentTab==='active8' && !show8) switchTab('activeOther');
+  if(currentTab==='activeOther' && !showBig) switchTab('active8');
+  if(ready.containers && ready.stock && ready.scrap) renderAll();
+}
+function pickVolumeMode(mode){
+  volumeMode = mode;
+  localStorage.setItem('ti_volume_mode', mode);
+  closeModal('modeModalBackdrop');
+  applyVolumeMode();
 }
 function logEvent(action, text, meta){
   try{
@@ -1025,6 +1101,13 @@ function todayISO(){
   const d = new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
+/* Данные обычно вносят на следующий день после операции — поэтому поля дат
+   по умолчанию предзаполняются вчерашним числом (но выбрать можно любую дату по сегодня). */
+function yesterdayISO(){
+  const d = new Date();
+  d.setDate(d.getDate()-1);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function formatDate(iso){
   if(!iso) return '—';
   const p = String(iso).split('-');
@@ -1098,7 +1181,7 @@ function highlightFor(c){
 /* ============ СКЛАД ============ */
 function renderYard(){
   const grid = document.getElementById('yardGrid');
-  grid.innerHTML = VOLUMES.map(v=>{
+  grid.innerHTML = currentVolumes().map(v=>{
     const qty = stock[v]||0;
     const o = occupiedForVolume(v);
     const rawFree = rawFreeForVolume(v);
@@ -1366,7 +1449,7 @@ function base45Rows(){
   const volF    = document.getElementById('volFilterBase45').value;
   const statusF = document.getElementById('statusFilterBase45').value;
 
-  let rows = containers.filter(c=>isActive(c) && isOnBase(c));
+  let rows = containers.filter(c=>isActive(c) && isOnBase(c) && currentVolumes().includes(c.volume));
   if(volF !== 'Все') rows = rows.filter(c=>String(c.volume)===volF);
   if(statusF !== 'Все') rows = rows.filter(c=>c.status===statusF);
   if(search){
@@ -1380,7 +1463,7 @@ function base45Rows(){
 
 function renderBase45(){
   buildHead('head-base45', BASE_COLS, 'base45');
-  const all = containers.filter(c=>isActive(c) && isOnBase(c));
+  const all = containers.filter(c=>isActive(c) && isOnBase(c) && currentVolumes().includes(c.volume));
   document.getElementById('cnt-base45').textContent = all.length;
 
   const working = all.filter(c=>c.status==='В работе').length;
@@ -1609,8 +1692,10 @@ function topModal(){
   return list.length ? list[list.length-1] : null;
 }
 
-function fillVolumeSelect(selectEl, selected){
-  selectEl.innerHTML = VOLUMES.map(v=>{
+function fillVolumeSelect(selectEl, selected, list){
+  let vols = list || VOLUMES;
+  if(selected!=null && !vols.includes(selected)) vols = [...vols, selected];
+  selectEl.innerHTML = vols.map(v=>{
     const free = freeForVolume(v);
     return `<option value="${v}"${selected===v?' selected':''}>${v} м³ — свободно ${free}</option>`;
   }).join('');
@@ -1639,7 +1724,7 @@ function toggleRemovalField(){
   const fld = document.getElementById('fld-removalDate');
   fld.style.display = isRemoval ? '' : 'none';
   if(isRemoval && !document.getElementById('f-removalDate').value){
-    document.getElementById('f-removalDate').value = todayISO();
+    document.getElementById('f-removalDate').value = yesterdayISO();
   }
 }
 /* Меняем подписи полей в зависимости от расположения: у клиента / на базе 45 */
@@ -1657,12 +1742,12 @@ function openAddModal(preVolume, preLocation){
   document.getElementById('containerModalTitle').textContent = 'Добавить контейнер';
   document.getElementById('editId').value = '';
   const volSel = document.getElementById('f-volume');
-  fillVolumeSelect(volSel, preVolume || VOLUMES[0]);
+  fillVolumeSelect(volSel, preVolume || currentVolumes()[0], currentVolumes());
   volSel.disabled = false;
   document.getElementById('f-location').value = preLocation || 'client';
   document.getElementById('f-client').value = '';
   document.getElementById('f-address').value = '';
-  document.getElementById('f-installDate').value = todayISO();
+  document.getElementById('f-installDate').value = yesterdayISO();
   document.getElementById('f-installDate').max = todayISO();
   document.getElementById('f-removalDate').value = '';
   document.getElementById('f-removalDate').max = todayISO();
@@ -1682,7 +1767,7 @@ function openEditModal(id){
   document.getElementById('containerModalTitle').textContent = `Редактировать ${c.number || 'контейнер'}`;
   document.getElementById('editId').value = id;
   const volSel = document.getElementById('f-volume');
-  fillVolumeSelect(volSel, c.volume);
+  fillVolumeSelect(volSel, c.volume, currentVolumes());
   volSel.value = c.volume;
   volSel.disabled = false;             // объём можно исправить: 20 → 27 и т.д.
   document.getElementById('f-location').value = c.location==='base45' ? 'base45' : 'client';
@@ -1816,7 +1901,7 @@ function openRemoveModal(id){
   document.getElementById('removeInfo').textContent =
     `${c.number ? c.number+' · ' : ''}${c.client} · ${c.address} · ${c.volume} м³. Поставлен ${formatDate(c.installDate)}.`;
   const d = document.getElementById('f-remove-date');
-  d.value = todayISO();
+  d.value = (c.installDate && yesterdayISO() < c.installDate) ? todayISO() : yesterdayISO();
   d.max = todayISO();
   d.min = c.installDate || '';
   openModal('removeModalBackdrop');
@@ -1860,28 +1945,59 @@ async function restoreFromHistory(id){
 
 /* ============ СПИСАНИЕ В МЕТАЛЛОЛОМ (по количеству, как склад) ============ */
 function openScrapModal(){
-  document.getElementById('scrapQtyGrid').innerHTML = VOLUMES.map(v=>`
+  document.getElementById('scrapQtyGrid').innerHTML = currentVolumes().map(v=>`
     <div class="field">
       <label for="scrap-input-${v}">${v} м³</label>
       <input type="number" min="0" step="1" id="scrap-input-${v}" value="${scrapStock[v]||0}">
     </div>`).join('');
   openModal('scrapModalBackdrop');
-  const first = document.getElementById('scrap-input-'+VOLUMES[0]);
+  const first = document.getElementById('scrap-input-'+currentVolumes()[0]);
   if(first){ first.focus(); first.select(); }
 }
 async function saveScrapStock(){
   const before = { ...scrapStock };
-  VOLUMES.forEach(v=>{
+  currentVolumes().forEach(v=>{
     const val = parseInt(document.getElementById('scrap-input-'+v).value,10);
     scrapStock[v] = (isNaN(val) || val<0) ? 0 : val;
   });
   if(await syncScrapStock()){
-    const changed = VOLUMES.filter(v=>before[v]!==scrapStock[v]).map(v=>`${v} м³: ${before[v]||0} → ${scrapStock[v]}`);
+    const changed = currentVolumes().filter(v=>before[v]!==scrapStock[v]).map(v=>`${v} м³: ${before[v]||0} → ${scrapStock[v]}`);
     if(changed.length) logEvent('scrap', 'Изменил количество списанных в металлолом — ' + changed.join('; '));
     toast('Списание сохранено', {type:'ok'});
   }
   closeModal('scrapModalBackdrop');
   renderAll();
+}
+
+/* ============ ПАРОЛЬ АДМИНИСТРАТОРА (только для удаления) ============
+   Это защита на уровне интерфейса, а не настоящая авторизация: пароль лежит
+   в коде страницы и виден в исходнике браузера. От случайных нажатий и
+   посторонних людей защищает, от того, кто откроет код сайта — нет. */
+const ADMIN_PASSWORD = '4569';
+let pendingDeleteId = null;
+
+function isAdminUnlocked(){ return sessionStorage.getItem('ti_admin_unlocked') === '1'; }
+
+function requestDelete(id){
+  if(isAdminUnlocked()){ deleteContainer(id); return; }
+  pendingDeleteId = id;
+  document.getElementById('fld-admin-password').classList.remove('invalid');
+  document.getElementById('f-admin-password').value = '';
+  openModal('adminModalBackdrop');
+  document.getElementById('f-admin-password').focus();
+}
+function submitAdminPassword(){
+  const val = document.getElementById('f-admin-password').value;
+  if(val === ADMIN_PASSWORD){
+    sessionStorage.setItem('ti_admin_unlocked', '1');
+    closeModal('adminModalBackdrop');
+    const id = pendingDeleteId; pendingDeleteId = null;
+    if(id) deleteContainer(id);
+  } else {
+    document.getElementById('fld-admin-password').classList.add('invalid');
+    document.getElementById('f-admin-password').value = '';
+    document.getElementById('f-admin-password').focus();
+  }
 }
 
 async function deleteContainer(id){
@@ -1909,23 +2025,23 @@ async function deleteContainer(id){
 
 /* ============ МОДАЛКА: СКЛАД ============ */
 function openStockModal(){
-  document.getElementById('stockQtyGrid').innerHTML = VOLUMES.map(v=>`
+  document.getElementById('stockQtyGrid').innerHTML = currentVolumes().map(v=>`
     <div class="field">
       <label for="stock-input-${v}">${v} м³</label>
       <input type="number" min="0" step="1" id="stock-input-${v}" value="${stock[v]||0}">
     </div>`).join('');
   openModal('stockModalBackdrop');
-  const first = document.getElementById('stock-input-'+VOLUMES[0]);
+  const first = document.getElementById('stock-input-'+currentVolumes()[0]);
   if(first){ first.focus(); first.select(); }
 }
 async function saveStock(){
   const before = { ...stock };
-  VOLUMES.forEach(v=>{
+  currentVolumes().forEach(v=>{
     const val = parseInt(document.getElementById('stock-input-'+v).value,10);
     stock[v] = (isNaN(val) || val<0) ? 0 : val;
   });
   if(await syncStock()){
-    const changed = VOLUMES.filter(v=>before[v]!==stock[v]).map(v=>`${v} м³: ${before[v]||0} → ${stock[v]}`);
+    const changed = currentVolumes().filter(v=>before[v]!==stock[v]).map(v=>`${v} м³: ${before[v]||0} → ${stock[v]}`);
     if(changed.length) logEvent('stock', 'Изменил количество на складе — ' + changed.join('; '));
     toast('Количество на складе сохранено', {type:'ok'});
   }
@@ -1941,7 +2057,9 @@ function openReplaceModal(id){
   document.getElementById('replaceInfo').textContent =
     `${c.number ? c.number+' · ' : ''}${c.client} · ${c.address} · текущий объём ${c.volume} м³.`;
   const sel = document.getElementById('f-replace-volume');
-  sel.innerHTML = VOLUMES.map(v=>{
+  let vols = currentVolumes();
+  if(!vols.includes(c.volume)) vols = [...vols, c.volume];
+  sel.innerHTML = vols.map(v=>{
     const isCurrent = v===c.volume;
     const avail = freeForVolume(v);
     const disabled = (!isCurrent && avail<=0) ? ' disabled' : '';
@@ -1951,7 +2069,7 @@ function openReplaceModal(id){
   sel.value = c.volume;
   document.getElementById('fld-replace-date').classList.remove('invalid');
   const d = document.getElementById('f-replace-date');
-  d.value = todayISO();
+  d.value = (c.installDate && yesterdayISO() < c.installDate) ? todayISO() : yesterdayISO();
   d.max = todayISO();
   openModal('replaceModalBackdrop');
   sel.focus();
@@ -2009,7 +2127,7 @@ document.addEventListener('click', async e=>{
 
   switch(act){
     case 'add':      openAddModal(el.dataset.volume ? parseInt(el.dataset.volume,10) : null); break;
-    case 'add-base': openAddModal(null, 'base45'); break;
+    case 'add-base': openAddModal(currentVolumes()[0], 'base45'); break;
     case 'history':  openHistoryModal(id); break;
     case 'edit':     openEditModal(id); break;
     case 'replace':  openReplaceModal(id); break;
@@ -2018,7 +2136,8 @@ document.addEventListener('click', async e=>{
     case 'restore':  restoreFromHistory(id); break;
     case 'scrap':    openScrapModal(); break;
     case 'save-scrap': saveScrapStock(); break;
-    case 'delete':   deleteContainer(id); break;
+    case 'delete':   requestDelete(id); break;
+    case 'submit-admin-password': submitAdminPassword(); break;
     case 'stock':    openStockModal(); break;
     case 'save-container': saveContainer(); break;
     case 'save-stock':     saveStock(); break;
@@ -2035,6 +2154,7 @@ document.addEventListener('click', async e=>{
       if(n) toast('Записи в журнале будут подписаны: '+n, {type:'ok'});
       break;
     }
+    case 'pick-mode': pickVolumeMode(el.dataset.mode); break;
     case 'reset-filters': {
       const view = el.dataset.view;
       if(view==='history'){
@@ -2065,6 +2185,10 @@ document.getElementById('actorChip').addEventListener('click', ()=>{
   openModal('actorModalBackdrop');
   document.getElementById('f-actor').focus();
 });
+document.getElementById('modeChip').addEventListener('click', ()=>{
+  document.getElementById('modeCancelWrap').style.display = volumeMode ? '' : 'none';
+  openModal('modeModalBackdrop');
+});
 
 // фильтры активных таблиц
 ['active8','activeOther'].forEach(view=>{
@@ -2090,6 +2214,7 @@ document.querySelectorAll('.modal-backdrop').forEach(bd=>{
   bd.addEventListener('click', e=>{
     if(e.target!==bd) return;
     if(bd.id==='confirmBackdrop'){ settleConfirm(false); return; }
+    if(bd.id==='modeModalBackdrop' && !volumeMode) return; // первый визит — выбор обязателен
     bd.classList.remove('active');
   });
 });
@@ -2098,6 +2223,7 @@ document.querySelectorAll('.modal-backdrop').forEach(bd=>{
 document.addEventListener('keydown', e=>{
   const modal = topModal();
   if(e.key === 'Escape' && modal){
+    if(modal.id==='modeModalBackdrop' && !volumeMode) return; // первый визит — выбор обязателен
     e.preventDefault();
     if(modal.id==='confirmBackdrop') settleConfirm(false); else modal.classList.remove('active');
     return;
@@ -2117,7 +2243,7 @@ document.addEventListener('keydown', e=>{
   if((e.key === 'n' || e.key === 'т') && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && (currentTab==='active8'||currentTab==='activeOther'||currentTab==='base45')){
     e.preventDefault();
     if(currentTab==='base45') openAddModal(null,'base45');
-    else openAddModal(currentTab==='active8' ? 8 : 20);
+    else openAddModal(currentTab==='active8' ? 8 : 16);
   }
 });
 
@@ -2143,6 +2269,11 @@ document.getElementById('yardGrid').innerHTML =
 refreshDayStamp();
 renderActorChip();
 refreshConn();
+applyVolumeMode();
+if(!volumeMode){
+  document.getElementById('modeCancelWrap').style.display = 'none';
+  openModal('modeModalBackdrop');
+}
 
 let startTab = location.hash.slice(1);
 if(!startTab){ try{ startTab = localStorage.getItem('ti_tab') || 'active8'; }catch(e){ startTab = 'active8'; } }
