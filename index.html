@@ -216,11 +216,16 @@
   .summary-chip{
     background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:8px 14px;
     font-size:12.5px;color:var(--muted);box-shadow:var(--shadow);
+    font-family:'Inter',sans-serif;
   }
   .summary-chip b{color:var(--ink);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;margin-left:4px;}
   .summary-chip.total{border-color:var(--amber);background:#faeee1;}
   .summary-chip.warn{border-color:#D89A8F;background:var(--red-tint);color:var(--red);}
   .summary-chip.warn b{color:var(--red);}
+  .summary-chip.clickable{cursor:pointer;transition:.12s;}
+  .summary-chip.clickable:hover{box-shadow:0 0 0 1px var(--red), var(--shadow);}
+  .summary-chip.clickable.active{background:var(--red);color:#fff;border-color:var(--red);}
+  .summary-chip.clickable.active b{color:#fff;}
 
   .section-title{
     font-size:13px;font-weight:700;color:var(--steel-dark);margin:22px 0 10px;display:flex;align-items:center;gap:8px;
@@ -266,6 +271,8 @@
   .badge-removed{background:var(--blue-tint);color:var(--blue);}
 
   .op-tag{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);}
+  .phone-link{display:block;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--steel);text-decoration:none;margin-top:2px;}
+  .phone-link:hover{text-decoration:underline;}
   .days-num{font-family:'JetBrains Mono',monospace;font-weight:700;}
   .reminder-text{color:var(--orange);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;}
   .reminder-text.hot{color:var(--red);}
@@ -461,7 +468,7 @@
     <div class="summary-bar" id="summaryBar8"></div>
     <div class="controls">
       <div class="controls-left">
-        <input type="search" id="searchInput8" class="search-box" placeholder="Поиск по клиенту, адресу или номеру…">
+        <input type="search" id="searchInput8" class="search-box" placeholder="Поиск по клиенту, адресу, телефону или номеру…">
         <select id="statusFilter8">
           <option value="Все">Статус: все</option>
           <option value="В работе">В работе</option>
@@ -497,7 +504,7 @@
     <div class="summary-bar" id="summaryBarOther"></div>
     <div class="controls">
       <div class="controls-left">
-        <input type="search" id="searchInputOther" class="search-box" placeholder="Поиск по клиенту, адресу или номеру…">
+        <input type="search" id="searchInputOther" class="search-box" placeholder="Поиск по клиенту, адресу, телефону или номеру…">
         <select id="statusFilterOther">
           <option value="Все">Статус: все</option>
           <option value="В работе">В работе</option>
@@ -560,7 +567,7 @@
   <div class="tab-panel" id="panel-history">
     <div class="controls">
       <div class="controls-left">
-        <input type="search" id="searchInputHist" class="search-box" placeholder="Поиск по клиенту, адресу или номеру…">
+        <input type="search" id="searchInputHist" class="search-box" placeholder="Поиск по клиенту, адресу, телефону или номеру…">
         <select id="volFilterHist"><option value="Все">Объём: все</option></select>
         <label style="font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px;">
           Снят с <input type="date" id="histFrom">
@@ -643,6 +650,12 @@
       <input type="text" id="f-address" placeholder="Адрес объекта" list="addressList" autocomplete="off">
       <datalist id="addressList"></datalist>
       <div class="err">Укажите адрес</div>
+    </div>
+    <div class="field" id="fld-phone">
+      <label for="f-phone">Телефон клиента (необязательно)</label>
+      <input type="tel" id="f-phone" placeholder="+7 999 123-45-67" list="phoneList" autocomplete="off">
+      <datalist id="phoneList"></datalist>
+      <div class="field-note">Чтобы не искать номер по переписке — сразу под клиентом в таблице.</div>
     </div>
     <div class="field" id="fld-date">
       <label for="f-installDate">Дата постановки</label>
@@ -748,7 +761,7 @@
 <div class="modal-backdrop" id="adminModalBackdrop">
   <div class="modal" role="dialog" aria-modal="true">
     <h3>Только для администратора</h3>
-    <p class="hint">Удаление контейнеров защищено паролем. Введите пароль, чтобы продолжить — на этом устройстве спросим один раз за сессию.</p>
+    <p class="hint">Удаление, изменение количества на складе и списание в металлолом защищены паролем. Введите пароль, чтобы продолжить — на этом устройстве спросим один раз за сессию.</p>
     <div class="field" id="fld-admin-password">
       <label for="f-admin-password">Пароль</label>
       <input type="password" id="f-admin-password" autocomplete="off">
@@ -1141,6 +1154,12 @@ function escapeHtml(str){
   if(str==null) return '';
   return String(str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 }
+/* Телефон клиента ссылкой сразу под именем — чтобы не искать его в переписке */
+function phoneCell(c){
+  if(!c.clientPhone) return '';
+  const href = c.clientPhone.replace(/[^\d+]/g,'');
+  return `<a href="tel:${escapeHtml(href)}" class="phone-link" onclick="event.stopPropagation()">${escapeHtml(c.clientPhone)}</a>`;
+}
 function debounce(fn, ms){
   let t; return function(){ clearTimeout(t); t = setTimeout(()=>fn.apply(this, arguments), ms); };
 }
@@ -1210,7 +1229,7 @@ function renderYard(){
 }
 
 /* ============ ИТОГОВЫЕ ПЛАШКИ ============ */
-function renderSummaryBar(elId, volumeList){
+function renderSummaryBar(elId, volumeList, viewKey){
   const active = containers.filter(c=>isActive(c) && volumeList.includes(c.volume) && !isOnBase(c));
   const working = active.filter(c=>c.status==='В работе').length;
   const repair  = active.filter(c=>c.status==='В ремонте').length;
@@ -1220,6 +1239,7 @@ function renderSummaryBar(elId, volumeList){
   const total   = volumeList.reduce((s,v)=> s + (stock[v]||0), 0);
   const rawFree = total - working - repair - base - scrapped;
   const attention = active.filter(c=>{ const h = highlightFor(c); return h.red || h.orange; }).length;
+  const flagOn = viewKey && document.getElementById(VIEWS[viewKey].flag).value === 'Внимание';
 
   document.getElementById(elId).innerHTML = `
     <div class="summary-chip">В работе <b>${working}</b></div>
@@ -1229,7 +1249,7 @@ function renderSummaryBar(elId, volumeList){
     ${base ? `<div class="summary-chip">На базе 45 <b>${base}</b></div>` : ''}
     ${scrapped ? `<div class="summary-chip">Списано <b>${scrapped}</b></div>` : ''}
     <div class="summary-chip total">Всего контейнеров <b>${total}</b></div>
-    ${attention ? `<div class="summary-chip warn">Требуют внимания <b>${attention}</b></div>` : ''}
+    ${attention ? `<button type="button" class="summary-chip warn clickable${flagOn?' active':''}" data-act="toggle-attention" data-view="${viewKey}">Требуют внимания <b>${attention}</b></button>` : ''}
     ${rawFree<0 ? `<div class="summary-chip warn">Перерасход <b>${Math.abs(rawFree)}</b></div>` : ''}
   `;
 }
@@ -1321,7 +1341,8 @@ function activeRowsFor(viewKey){
     rows = rows.filter(c =>
       (c.client||'').toLowerCase().includes(search) ||
       (c.address||'').toLowerCase().includes(search) ||
-      (c.number||'').toLowerCase().includes(search));
+      (c.number||'').toLowerCase().includes(search) ||
+      (c.clientPhone||'').toLowerCase().includes(search));
   }
   if(statusF !== 'Все') rows = rows.filter(c=>c.status===statusF);
   if(typeF   !== 'Все') rows = rows.filter(c=>c.type===typeF);
@@ -1331,7 +1352,7 @@ function activeRowsFor(viewKey){
 
 function renderActive(viewKey){
   const v = VIEWS[viewKey];
-  renderSummaryBar(v.summary, v.volumes);
+  renderSummaryBar(v.summary, v.volumes, viewKey);
   buildHead(v.head, ACTIVE_COLS, viewKey);
 
   const all = containers.filter(c=>isActive(c) && !isOnBase(c) && v.volumes.includes(c.volume));
@@ -1358,7 +1379,7 @@ function renderActive(viewKey){
         <td data-label="№" class="mono">${i+1}</td>
         <td data-label="Номер" class="mono">${escapeHtml(c.number||'—')}</td>
         <td data-label="Объём" class="mono">${escapeHtml(String(c.volume))} м³</td>
-        <td data-label="Клиент">${escapeHtml(c.client)}</td>
+        <td data-label="Клиент">${escapeHtml(c.client)}${phoneCell(c)}</td>
         <td data-label="Адрес">${escapeHtml(c.address)}</td>
         <td data-label="Статус"><span class="badge ${badgeClass(c.status)}">${escapeHtml(c.status)}</span></td>
         <td data-label="Операция" class="op-tag">${escapeHtml(c.type)}</td>
@@ -1391,7 +1412,8 @@ function historyRows(volumes){
     rows = rows.filter(c =>
       (c.client||'').toLowerCase().includes(search) ||
       (c.address||'').toLowerCase().includes(search) ||
-      (c.number||'').toLowerCase().includes(search));
+      (c.number||'').toLowerCase().includes(search) ||
+      (c.clientPhone||'').toLowerCase().includes(search));
   }
   if(from) rows = rows.filter(c=>(c.removalDate||'') >= from);
   if(to)   rows = rows.filter(c=>(c.removalDate||'') <= to);
@@ -1431,7 +1453,7 @@ function renderHistoryInto(sortKey, volumes, bodyId, moreId, countId){
       <td data-label="№" class="mono">${i+1}</td>
       <td data-label="Номер" class="mono">${escapeHtml(c.number||'—')}</td>
       <td data-label="Объём" class="mono">${escapeHtml(String(c.volume))} м³</td>
-      <td data-label="Клиент">${escapeHtml(c.client)}</td>
+      <td data-label="Клиент">${escapeHtml(c.client)}${phoneCell(c)}</td>
       <td data-label="Адрес">${escapeHtml(c.address)}</td>
       <td data-label="Установлен" class="mono">${formatDate(c.installDate)}</td>
       <td data-label="Снят" class="mono">${formatDate(c.removalDate)}</td>
@@ -1628,10 +1650,10 @@ function doExport(viewKey){
   const stampName = todayISO();
   if(viewKey==='history'){
     const rows = sortRows(historyRows(VOLUMES), 'hist8').map(c=>[
-      c.number||'', c.volume, c.client, c.address, formatDate(c.installDate), formatDate(c.removalDate), c.prevType||c.type
+      c.number||'', c.volume, c.client, c.clientPhone||'', c.address, formatDate(c.installDate), formatDate(c.removalDate), c.prevType||c.type
     ]);
     exportCSV(`история-контейнеров-${stampName}.csv`,
-      ['Номер','Объём, м³','Клиент','Адрес','Установлен','Снят','Операция'], rows);
+      ['Номер','Объём, м³','Клиент','Телефон','Адрес','Установлен','Снят','Операция'], rows);
     return;
   }
   if(viewKey==='base45'){
@@ -1642,11 +1664,11 @@ function doExport(viewKey){
   }
   const rows = activeRowsFor(viewKey).map(c=>{
     const h = highlightFor(c);
-    return [c.number||'', c.volume, c.client, c.address, c.status, c.type, formatDate(c.installDate), h.days, h.reminderText];
+    return [c.number||'', c.volume, c.client, c.clientPhone||'', c.address, c.status, c.type, formatDate(c.installDate), h.days, h.reminderText];
   });
   const name = viewKey==='active8' ? 'активные-8м3' : 'активные-20м3-плюс';
   exportCSV(`${name}-${stampName}.csv`,
-    ['Номер','Объём, м³','Клиент','Адрес','Статус','Операция','Установлен','Дней без движения','Напоминание'], rows);
+    ['Номер','Объём, м³','Клиент','Телефон','Адрес','Статус','Операция','Установлен','Дней без движения','Напоминание'], rows);
 }
 
 /* ============ ОБЩАЯ ОТРИСОВКА ============ */
@@ -1661,8 +1683,10 @@ function renderAll(){
 function refreshDatalists(){
   const clients = [...new Set(containers.map(c=>c.client).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
   const addrs   = [...new Set(containers.map(c=>c.address).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+  const phones  = [...new Set(containers.map(c=>c.clientPhone).filter(Boolean))].sort();
   document.getElementById('clientList').innerHTML  = clients.map(x=>`<option value="${escapeHtml(x)}">`).join('');
   document.getElementById('addressList').innerHTML = addrs.map(x=>`<option value="${escapeHtml(x)}">`).join('');
+  document.getElementById('phoneList').innerHTML   = phones.map(x=>`<option value="${escapeHtml(x)}">`).join('');
 }
 
 /* ============ ВКЛАДКИ ============ */
@@ -1734,6 +1758,7 @@ function toggleLocationField(){
   document.getElementById('f-client').placeholder = isBase ? 'Например: хранение стройматериалов' : 'Название клиента';
   document.getElementById('lbl-address').textContent = isBase ? 'Место на базе (необязательно)' : 'Адрес';
   document.getElementById('f-address').placeholder = isBase ? 'Например: площадка №3' : 'Адрес объекта';
+  document.getElementById('fld-phone').style.display = isBase ? 'none' : '';
 }
 
 function openAddModal(preVolume, preLocation){
@@ -1747,6 +1772,7 @@ function openAddModal(preVolume, preLocation){
   document.getElementById('f-location').value = preLocation || 'client';
   document.getElementById('f-client').value = '';
   document.getElementById('f-address').value = '';
+  document.getElementById('f-phone').value = '';
   document.getElementById('f-installDate').value = yesterdayISO();
   document.getElementById('f-installDate').max = todayISO();
   document.getElementById('f-removalDate').value = '';
@@ -1773,6 +1799,7 @@ function openEditModal(id){
   document.getElementById('f-location').value = c.location==='base45' ? 'base45' : 'client';
   document.getElementById('f-client').value = c.client||'';
   document.getElementById('f-address').value = c.address||'';
+  document.getElementById('f-phone').value = c.clientPhone||'';
   document.getElementById('f-installDate').value = c.installDate || todayISO();
   document.getElementById('f-installDate').max = todayISO();
   document.getElementById('f-removalDate').value = c.removalDate || '';
@@ -1797,6 +1824,7 @@ async function saveContainer(){
   const status = document.getElementById('f-status').value;
   const type = document.getElementById('f-type').value;
   const location = document.getElementById('f-location').value === 'base45' ? 'base45' : 'client';
+  const clientPhone = location==='base45' ? '' : document.getElementById('f-phone').value.trim();
 
   clearFieldErrors();
   let bad = false;
@@ -1848,7 +1876,7 @@ async function saveContainer(){
       c = containers.find(x=>x.id===id);
       if(!c) return;
       const before = { client:c.client, address:c.address, status:c.status, type:c.type,
-                       installDate:c.installDate, removalDate:c.removalDate, volume:c.volume, location:c.location||'client' };
+                       installDate:c.installDate, removalDate:c.removalDate, volume:c.volume, location:c.location||'client', clientPhone:c.clientPhone||'' };
 
       if(type === 'Снятие'){
         if(before.type !== 'Снятие') c.prevType = before.type;
@@ -1858,13 +1886,14 @@ async function saveContainer(){
       }
       c.volume = volume;
       c.client = client; c.address = address; c.installDate = installDate;
-      c.status = status; c.type = type; c.location = location;
+      c.status = status; c.type = type; c.location = location; c.clientPhone = clientPhone || null;
 
       if(await upsertContainerRow(c)){
         const changes = [];
         if(before.volume!==volume) changes.push(`объём ${before.volume} м³ → ${volume} м³`);
         if(before.client!==client) changes.push(`клиент → ${client}`);
         if(before.address!==address) changes.push(`адрес → ${address}`);
+        if(before.clientPhone!==clientPhone) changes.push(`телефон → ${clientPhone||'—'}`);
         if(before.status!==status) changes.push(`статус → ${status}`);
         if(before.type!==type) changes.push(`операция → ${type}`);
         if(before.location!==location) changes.push(`расположение → ${location==='base45'?'база 45':'у клиента'}`);
@@ -1878,6 +1907,7 @@ async function saveContainer(){
       c = {
         id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random().toString(36).slice(2)),
         number, volume, client, address, status, type, location,
+        clientPhone: clientPhone || null,
         installDate,
         removalDate: type==='Снятие' ? todayISO() : null,
         prevType: null,
@@ -1969,30 +1999,32 @@ async function saveScrapStock(){
   renderAll();
 }
 
-/* ============ ПАРОЛЬ АДМИНИСТРАТОРА (только для удаления) ============
+/* ============ ПАРОЛЬ АДМИНИСТРАТОРА (удаление, склад, списание) ============
    Это защита на уровне интерфейса, а не настоящая авторизация: пароль лежит
    в коде страницы и виден в исходнике браузера. От случайных нажатий и
    посторонних людей защищает, от того, кто откроет код сайта — нет. */
 const ADMIN_PASSWORD = '4569';
-let pendingDeleteId = null;
+let pendingAdminAction = null;
 
 function isAdminUnlocked(){ return sessionStorage.getItem('ti_admin_unlocked') === '1'; }
 
-function requestDelete(id){
-  if(isAdminUnlocked()){ deleteContainer(id); return; }
-  pendingDeleteId = id;
+/* Запускает action() сразу, если сессия уже разблокирована, иначе спрашивает пароль. */
+function requireAdmin(action){
+  if(isAdminUnlocked()){ action(); return; }
+  pendingAdminAction = action;
   document.getElementById('fld-admin-password').classList.remove('invalid');
   document.getElementById('f-admin-password').value = '';
   openModal('adminModalBackdrop');
   document.getElementById('f-admin-password').focus();
 }
+function requestDelete(id){ requireAdmin(()=>deleteContainer(id)); }
 function submitAdminPassword(){
   const val = document.getElementById('f-admin-password').value;
   if(val === ADMIN_PASSWORD){
     sessionStorage.setItem('ti_admin_unlocked', '1');
     closeModal('adminModalBackdrop');
-    const id = pendingDeleteId; pendingDeleteId = null;
-    if(id) deleteContainer(id);
+    const action = pendingAdminAction; pendingAdminAction = null;
+    if(action) action();
   } else {
     document.getElementById('fld-admin-password').classList.add('invalid');
     document.getElementById('f-admin-password').value = '';
@@ -2134,11 +2166,11 @@ document.addEventListener('click', async e=>{
     case 'remove':   openRemoveModal(id); break;
     case 'confirm-remove': confirmRemove(); break;
     case 'restore':  restoreFromHistory(id); break;
-    case 'scrap':    openScrapModal(); break;
+    case 'scrap':    requireAdmin(openScrapModal); break;
     case 'save-scrap': saveScrapStock(); break;
     case 'delete':   requestDelete(id); break;
     case 'submit-admin-password': submitAdminPassword(); break;
-    case 'stock':    openStockModal(); break;
+    case 'stock':    requireAdmin(openStockModal); break;
     case 'save-container': saveContainer(); break;
     case 'save-stock':     saveStock(); break;
     case 'confirm-replace':confirmReplace(); break;
@@ -2155,6 +2187,13 @@ document.addEventListener('click', async e=>{
       break;
     }
     case 'pick-mode': pickVolumeMode(el.dataset.mode); break;
+    case 'toggle-attention': {
+      const view = el.dataset.view;
+      const flagSel = document.getElementById(VIEWS[view].flag);
+      flagSel.value = flagSel.value === 'Внимание' ? 'Все' : 'Внимание';
+      renderActive(view);
+      break;
+    }
     case 'reset-filters': {
       const view = el.dataset.view;
       if(view==='history'){
