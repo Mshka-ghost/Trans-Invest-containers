@@ -2036,7 +2036,13 @@ async function saveScrapStock(){
 const ADMIN_PASSWORD = '4569';
 let pendingAdminAction = null;
 
-function isAdminUnlocked(){ return sessionStorage.getItem('ti_admin_unlocked') === '1'; }
+const ADMIN_TTL_MS = 5*60*1000; // пароль действует 5 минут
+function isAdminUnlocked(){
+  const t = Number(sessionStorage.getItem('ti_admin_unlocked'));
+  if(t && Date.now() - t < ADMIN_TTL_MS) return true;
+  sessionStorage.removeItem('ti_admin_unlocked');
+  return false;
+}
 
 /* Запускает action() сразу, если сессия уже разблокирована, иначе спрашивает пароль. */
 function requireAdmin(action){
@@ -2051,7 +2057,7 @@ function requestDelete(id){ requireAdmin(()=>deleteContainer(id)); }
 function submitAdminPassword(){
   const val = document.getElementById('f-admin-password').value;
   if(val === ADMIN_PASSWORD){
-    sessionStorage.setItem('ti_admin_unlocked', '1');
+    sessionStorage.setItem('ti_admin_unlocked', String(Date.now()));
     closeModal('adminModalBackdrop');
     const action = pendingAdminAction; pendingAdminAction = null;
     if(action) action();
