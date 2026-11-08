@@ -125,6 +125,18 @@
   .yard-grid{
     display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:14px;
   }
+  .yard-card{cursor:pointer;transition:transform .12s, box-shadow .12s;}
+  .yard-card:hover{transform:translateY(-2px);}
+  .yard-card.selected{outline:2px solid var(--rust,#C1440E);outline-offset:1px;}
+  .yard-list{margin-top:18px;background:var(--paper,#fff);border:1px solid var(--line,#cfd3cc);border-radius:6px;overflow:hidden;}
+  .yard-list-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;font-weight:700;border-bottom:1px solid var(--line,#cfd3cc);}
+  .yard-list-row{display:grid;grid-template-columns:90px 1.4fr 1.6fr auto;gap:10px;padding:10px 14px;border-bottom:1px solid #e6e8e2;font-size:14px;align-items:center;}
+  .yard-list-row:last-child{border-bottom:0;}
+  .yard-list-row.row-yellow{background:var(--yellow-tint);}
+  .yard-list-row.row-red{background:var(--red-tint);}
+  .yard-list-row.row-orange{background:var(--orange-tint);}
+  .yard-list-empty{padding:16px 14px;color:#667;}
+  @media(max-width:700px){.yard-list-row{grid-template-columns:1fr 1fr;}}
   .yard-card{
     position:relative;
     background:var(--surface);
@@ -253,6 +265,8 @@
   tbody td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;}
   tbody tr:last-child td{border-bottom:none;}
   tbody tr:hover td{background:#EEEDE4;}
+  tbody tr.row-yellow td{background:var(--yellow-tint);}
+  tbody tr.row-yellow:hover td{background:#f1d99a;}
   tbody tr.row-red td{background:var(--red-tint);}
   tbody tr.row-red:hover td{background:#e6c0b6;}
   tbody tr.row-orange td{background:var(--orange-tint);}
@@ -397,6 +411,7 @@
     tbody td[data-label="Действия"]::before{display:none;}
     .row-actions{min-width:0;}
     .row-actions .btn{flex:1 1 auto;text-align:center;}
+    tbody tr.row-yellow{background:var(--yellow-tint);}
     tbody tr.row-red{background:var(--red-tint);}
     tbody tr.row-orange{background:var(--orange-tint);}
     .empty-row td{display:block;}
@@ -453,6 +468,7 @@
       </div>
     </div>
     <div class="yard-grid" id="yardGrid"></div>
+    <div id="yardList"></div>
   </div>
 
   <div class="tabs" id="tabs">
@@ -524,7 +540,7 @@
       </div>
       <div class="controls-right">
         <button class="btn btn-ghost" data-act="export" data-view="activeOther">Выгрузить в Excel</button>
-        <button class="btn btn-primary" data-act="add" data-volume="16">+ Добавить контейнер</button>
+        <button class="btn btn-primary" data-act="add" data-volume="20">+ Добавить контейнер</button>
       </div>
     </div>
     <div class="table-scroll">
@@ -1198,6 +1214,19 @@ function highlightFor(c){
 }
 
 /* ============ СКЛАД ============ */
+let yardSel = null;
+function renderYardList(){
+  const box = document.getElementById('yardList');
+  if(yardSel==null || !currentVolumes().includes(yardSel)){ box.innerHTML=''; return; }
+  const rows = containers.filter(c=>isActive(c) && c.volume===yardSel)
+    .sort((a,b)=>(a.number||'').localeCompare(b.number||'','ru'));
+  box.innerHTML = `<div class="yard-list"><div class="yard-list-head"><span>${yardSel} м³ — контейнеры в работе: ${rows.length}</span><button type="button" class="btn" data-act="yard-pick" data-volume="${yardSel}">Закрыть</button></div>` +
+    (rows.length ? rows.map(c=>{
+      const h = highlightFor(c);
+      const cls = h.red ? 'row-red' : (h.orange ? 'row-orange' : (c.type==='Постановка' ? 'row-yellow' : ''));
+      return `<div class="yard-list-row ${cls}"><b>${escapeHtml(c.number||'')}</b><span>${escapeHtml(c.client||'—')}</span><span>${escapeHtml(c.address||'')}${isOnBase(c)?' (База 45)':''}</span><span>${escapeHtml(c.type||'')} · ${escapeHtml(c.status||'')} · ${formatDate(c.installDate)}</span></div>`;
+    }).join('') : '<div class="yard-list-empty">Сейчас нет контейнеров этого объёма</div>') + '</div>';
+}
 function renderYard(){
   const grid = document.getElementById('yardGrid');
   grid.innerHTML = currentVolumes().map(v=>{
@@ -1212,7 +1241,7 @@ function renderYard(){
     if(qty===0) crates = '<div class="crate empty-slot"></div>';
     const overflow = qty>10 ? `<span class="crate-overflow">+${qty-10}</span>` : '';
     return `
-      <div class="yard-card${rawFree<0?' alert':''}">
+      <div class="yard-card${rawFree<0?' alert':''}${yardSel===v?' selected':''}" data-act="yard-pick" data-volume="${v}">
         <div class="vol">${v} м³</div>
         <div class="stock-num">${qty}</div>
         <div class="container-stack" title="Серые — свободны, оранжевые — заняты">${crates}${overflow}</div>
@@ -1226,6 +1255,7 @@ function renderYard(){
         ${rawFree<0 ? `<div class="overuse">Перерасход на ${Math.abs(rawFree)} — проверьте общее количество</div>` : ''}
       </div>`;
   }).join('');
+  renderYardList();
 }
 
 /* ============ ИТОГОВЫЕ ПЛАШКИ ============ */
@@ -1372,7 +1402,7 @@ function renderActive(viewKey){
 
   tbody.innerHTML = rows.map((c,i)=>{
     const h = highlightFor(c);
-    const rowClass = h.red ? 'row-red' : (h.orange ? 'row-orange' : '');
+    const rowClass = h.red ? 'row-red' : (h.orange ? 'row-orange' : (c.type==='Постановка' ? 'row-yellow' : ''));
     const daysLabel = `${h.days} ${plural(h.days,'день','дня','дней')}`;
     return `
       <tr class="${rowClass}">
@@ -1767,7 +1797,7 @@ function openAddModal(preVolume, preLocation){
   document.getElementById('containerModalTitle').textContent = 'Добавить контейнер';
   document.getElementById('editId').value = '';
   const volSel = document.getElementById('f-volume');
-  fillVolumeSelect(volSel, preVolume || currentVolumes()[0], currentVolumes());
+  fillVolumeSelect(volSel, preVolume || (volumeMode==='big' ? 20 : currentVolumes()[0]), currentVolumes());
   volSel.disabled = false;
   document.getElementById('f-location').value = preLocation || 'client';
   document.getElementById('f-client').value = '';
@@ -2159,7 +2189,7 @@ document.addEventListener('click', async e=>{
 
   switch(act){
     case 'add':      openAddModal(el.dataset.volume ? parseInt(el.dataset.volume,10) : null); break;
-    case 'add-base': openAddModal(currentVolumes()[0], 'base45'); break;
+    case 'add-base': openAddModal(volumeMode==='big' ? 20 : currentVolumes()[0], 'base45'); break;
     case 'history':  openHistoryModal(id); break;
     case 'edit':     openEditModal(id); break;
     case 'replace':  openReplaceModal(id); break;
@@ -2187,6 +2217,13 @@ document.addEventListener('click', async e=>{
       break;
     }
     case 'pick-mode': pickVolumeMode(el.dataset.mode); break;
+    case 'yard-pick': {
+      const v = Number(el.dataset.volume);
+      yardSel = (yardSel===v) ? null : v;
+      renderYard();
+      if(yardSel!=null) document.getElementById('yardList').scrollIntoView({behavior:'smooth',block:'nearest'});
+      break;
+    }
     case 'toggle-attention': {
       const view = el.dataset.view;
       const flagSel = document.getElementById(VIEWS[view].flag);
@@ -2282,7 +2319,7 @@ document.addEventListener('keydown', e=>{
   if((e.key === 'n' || e.key === 'т') && !/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && (currentTab==='active8'||currentTab==='activeOther'||currentTab==='base45')){
     e.preventDefault();
     if(currentTab==='base45') openAddModal(null,'base45');
-    else openAddModal(currentTab==='active8' ? 8 : 16);
+    else openAddModal(currentTab==='active8' ? 8 : 20);
   }
 });
 
